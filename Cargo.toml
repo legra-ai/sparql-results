@@ -1,0 +1,43 @@
+[package]
+name = "sparql-results"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+authors = ["Jacobus Geluk <jacobus.geluk@dataroad.com>"]
+description = "Async streaming parsers and serializers for SPARQL Query Results XML and JSON"
+repository = "https://github.com/legra-ai/sparql-results"
+homepage = "https://github.com/legra-ai/sparql-results"
+documentation = "https://docs.rs/sparql-results"
+keywords = ["sparql", "rdf", "json", "xml", "streaming"]
+categories = ["asynchronous", "encoding", "parser-implementations"]
+readme = "README.md"
+exclude = ["Cargo.toml.orig", ".cargo_vcs_info.json", "CHANGELOG.md"]
+
+[lib]
+doctest = true
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+async-trait = "0.1"
+indexmap = "2"
+quick-xml = { version = "0.39", features = ["async-tokio", "serialize"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["io-util"] }
+
+[dev-dependencies]
+tokio = {
+    version = "1",
+    features = ["io-util", "macros", "rt", "rt-multi-thread", "sync", "time"],
+}
+
+[lints.rust]
+missing_docs = "deny"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
