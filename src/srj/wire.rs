@@ -9,6 +9,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::types::BaseDirection;
+
 /// One row: `var-name -> value`. `BTreeMap` gives deterministic
 /// serialization order.
 pub(super) type SrjBinding = BTreeMap<String, SrjValue>;
@@ -35,6 +37,14 @@ pub(super) enum SrjValue {
         /// Optional datatype IRI.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         datatype: Option<String>,
+        /// Optional base direction (`"ltr"` / `"rtl"`), present only
+        /// for an RDF 1.2 directional language-tagged literal
+        /// (`rdf:dirLangString`). SPARQL 1.2 Results JSON emits this as
+        /// the `"its:dir"` key alongside `"value"` and `"xml:lang"`
+        /// (aligned with the SRX `its:dir` attribute; the ITS prefix is
+        /// used verbatim since JSON has no namespaces).
+        #[serde(rename = "its:dir", default, skip_serializing_if = "Option::is_none")]
+        dir: Option<BaseDirection>,
     },
     /// A blank node identifier.
     #[serde(rename = "bnode")]

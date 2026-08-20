@@ -25,7 +25,7 @@ pub use srx::{
     SrxStreamKind, SrxStreamSink, SrxStreamSummary, SrxWriter, canonicalize_srx,
     parse_srx_streaming,
 };
-pub use types::{ResultRow, ResultValue};
+pub use types::{BaseDirection, ParseBaseDirectionError, ResultRow, ResultValue};
 
 /// Errors raised while parsing or serializing SPARQL query result
 /// documents in SRX or SRJ form.

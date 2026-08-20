@@ -158,6 +158,7 @@ where
             let mut value = None;
             let mut datatype = None;
             let mut lang = None;
+            let mut dir = None;
             let mut term_type = None;
             loop {
                 if self.next_is(TokenKind::ObjectEnd).await? {
@@ -169,6 +170,12 @@ where
                     "type" => term_type = Some(self.expect_string().await?),
                     "value" => value = Some(self.parse_value_field().await?),
                     "xml:lang" | "lang" => lang = Some(self.expect_string().await?),
+                    "its:dir" => {
+                        let token = self.expect_string().await?;
+                        dir = Some(token.parse().map_err(|err| {
+                            SparqlResultsError::InvalidDocument(format!("{err}"))
+                        })?);
+                    }
                     "datatype" => datatype = Some(self.expect_string().await?),
                     _ => self.skip_value().await?,
                 }
@@ -185,6 +192,7 @@ where
                     value: expect_string_value(value)?,
                     lang,
                     datatype,
+                    dir,
                 }),
                 "triple" => match value {
                     Some(JsonValueField::Triple {
@@ -192,9 +200,9 @@ where
                         predicate,
                         object,
                     }) => Ok(ResultValue::Triple {
-                        subject: Box::new(subject),
-                        predicate: Box::new(predicate),
-                        object: Box::new(object),
+                        subject,
+                        predicate,
+                        object,
                     }),
                     Some(JsonValueField::String(_)) | None => {
                         Err(SparqlResultsError::InvalidDocument(
@@ -240,9 +248,9 @@ where
             }
         }
         Ok(JsonValueField::Triple {
-            subject: subject.ok_or_else(|| missing_triple_part("subject"))?,
-            predicate: predicate.ok_or_else(|| missing_triple_part("predicate"))?,
-            object: object.ok_or_else(|| missing_triple_part("object"))?,
+            subject: Box::new(subject.ok_or_else(|| missing_triple_part("subject"))?),
+            predicate: Box::new(predicate.ok_or_else(|| missing_triple_part("predicate"))?),
+            object: Box::new(object.ok_or_else(|| missing_triple_part("object"))?),
         })
     }
 
@@ -366,8 +374,8 @@ fn missing_triple_part(part: &str) -> SparqlResultsError {
 enum JsonValueField {
     String(String),
     Triple {
-        subject: ResultValue,
-        predicate: ResultValue,
-        object: ResultValue,
+        subject: Box<ResultValue>,
+        predicate: Box<ResultValue>,
+        object: Box<ResultValue>,
     },
 }

@@ -148,10 +148,12 @@ fn result_value_to_wire(value: &ResultValue) -> SrjValue {
             value,
             lang,
             datatype,
+            dir,
         } => SrjValue::Literal {
             value: value.clone(),
             lang: lang.clone(),
             datatype: datatype.clone(),
+            dir: *dir,
         },
         ResultValue::Triple {
             subject,

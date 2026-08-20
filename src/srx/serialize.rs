@@ -11,6 +11,9 @@ use crate::types::SparqlResult;
 use crate::{Result, ResultRow, ResultValue, SparqlResultsError};
 
 const SPARQL_NS: &str = "http://www.w3.org/2005/sparql-results#";
+/// W3C Internationalization Tag Set namespace, source of the `its:dir`
+/// attribute used to carry an RDF 1.2 literal base direction in SRX.
+const ITS_NS: &str = "http://www.w3.org/2005/11/its";
 
 /// Incremental SRX SELECT serializer.
 pub struct SrxWriter<W: AsyncWrite + Unpin> {
@@ -154,10 +157,15 @@ where
                 value,
                 lang,
                 datatype,
+                dir,
             } => {
                 let mut literal = BytesStart::new("literal");
                 if let Some(lang) = lang {
                     literal.push_attribute(("xml:lang", lang.as_str()));
+                }
+                if let Some(dir) = dir {
+                    literal.push_attribute(("its:dir", dir.as_str()));
+                    literal.push_attribute(("xmlns:its", ITS_NS));
                 }
                 if let Some(datatype) = datatype {
                     literal.push_attribute(("datatype", datatype.as_str()));

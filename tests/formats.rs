@@ -11,8 +11,8 @@ use sparql_results::bounded::{
     SparqlResult, parse_srj_bounded, parse_srx_bounded, write_srj, write_srx,
 };
 use sparql_results::{
-    Result, ResultRow, ResultValue, SparqlResultsError, SrjStreamSink, SrxStreamSink,
-    parse_srj_streaming,
+    BaseDirection, Result, ResultRow, ResultValue, SparqlResultsError, SrjStreamSink,
+    SrxStreamSink, canonicalize_srx, parse_srj_streaming,
 };
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
@@ -208,6 +208,7 @@ async fn async_writers_round_trip_through_partial_writes() {
                     value: "v".to_owned(),
                     lang: Some("en".to_owned()),
                     datatype: Some("urn:mime:text".to_owned()),
+                    dir: None,
                 },
             )]),
         }],
@@ -249,4 +250,128 @@ async fn async_writers_round_trip_through_partial_writes() {
     .await
     .unwrap();
     assert_eq!(parsed, result);
+}
+
+/// A buffering async writer used to capture serializer output whole.
+struct BufWriter(Vec<u8>);
+
+impl AsyncWrite for BufWriter {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        bytes: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        self.0.extend_from_slice(bytes);
+        Poll::Ready(Ok(bytes.len()))
+    }
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
+
+fn dir_lang_result(dir: BaseDirection) -> SparqlResult {
+    SparqlResult::Select {
+        vars: vec!["x".to_owned()],
+        rows: vec![ResultRow {
+            bindings: IndexMap::from([(
+                "x".to_owned(),
+                ResultValue::Literal {
+                    value: "مرحبا".to_owned(),
+                    lang: Some("ar".to_owned()),
+                    datatype: None,
+                    dir: Some(dir),
+                },
+            )]),
+        }],
+    }
+}
+
+/// (a) SRJ serialization of a directional language-tagged literal emits
+/// the SPARQL 1.2 `"its:dir"` key alongside `"value"` and `"xml:lang"`.
+#[tokio::test]
+async fn srj_serializes_base_direction() {
+    let result = dir_lang_result(BaseDirection::Ltr);
+    let writer = write_srj(BufWriter(Vec::new()), &result).await.unwrap();
+    let json = String::from_utf8(writer.0).unwrap();
+    assert!(
+        json.contains(r#""its:dir":"ltr""#),
+        "SRJ must emit its:dir: {json}"
+    );
+    assert!(
+        json.contains(r#""xml:lang":"ar""#),
+        "SRJ must keep lang: {json}"
+    );
+}
+
+/// (b) SRX serialization emits `its:dir` on the `<literal>` element with the
+/// ITS namespace declared on that same element (not on the root `<sparql>`, so
+/// non-directional output stays byte-identical to plain W3C SRX).
+#[tokio::test]
+async fn srx_serializes_base_direction_with_its_namespace() {
+    let result = dir_lang_result(BaseDirection::Rtl);
+    let writer = write_srx(BufWriter(Vec::new()), &result).await.unwrap();
+    let xml = String::from_utf8(writer.0).unwrap();
+    assert!(
+        xml.contains(
+            r#"<literal xml:lang="ar" its:dir="rtl" xmlns:its="http://www.w3.org/2005/11/its">"#
+        ),
+        "SRX must emit its:dir and its namespace on the literal: {xml}"
+    );
+    assert!(
+        !xml.contains(r#"<sparql xmlns="http://www.w3.org/2005/sparql-results#" xmlns:its"#),
+        "SRX must not declare the its namespace on the root: {xml}"
+    );
+}
+
+/// (c) SRX parsing reads `its:dir` back into the typed base direction.
+#[tokio::test]
+async fn srx_parses_base_direction() {
+    let xml = r#"<sparql xmlns="http://www.w3.org/2005/sparql-results#" xmlns:its="http://www.w3.org/2005/11/its"><head><variable name="x"/></head><results><result><binding name="x"><literal xml:lang="ar" its:dir="rtl">مرحبا</literal></binding></result></results></sparql>"#;
+    let result = parse_srx_bounded(OneByteReader {
+        input: xml.as_bytes().to_vec(),
+        offset: 0,
+    })
+    .await
+    .unwrap();
+    let SparqlResult::Select { rows, .. } = result else {
+        panic!("expected SELECT result");
+    };
+    assert_eq!(
+        rows[0].bindings["x"],
+        ResultValue::Literal {
+            value: "مرحبا".to_owned(),
+            lang: Some("ar".to_owned()),
+            datatype: None,
+            dir: Some(BaseDirection::Rtl),
+        }
+    );
+}
+
+/// (d) SRX serialize -> parse round-trips the base direction, and the
+/// canonical form preserves the `its:dir` attribute.
+#[tokio::test]
+async fn srx_round_trip_and_canonicalize_preserve_base_direction() {
+    let result = dir_lang_result(BaseDirection::Rtl);
+    let writer = write_srx(BufWriter(Vec::new()), &result).await.unwrap();
+    let xml = writer.0;
+
+    let parsed = parse_srx_bounded(OneByteReader {
+        input: xml.clone(),
+        offset: 0,
+    })
+    .await
+    .unwrap();
+    assert_eq!(parsed, result, "SRX round-trip must preserve dir");
+
+    let canonical = canonicalize_srx(xml.as_slice(), BufWriter(Vec::new()))
+        .await
+        .unwrap();
+    let canonical = String::from_utf8(canonical.0).unwrap();
+    assert!(
+        canonical.contains(r#"its:dir="rtl""#),
+        "canonicalize must preserve its:dir: {canonical}"
+    );
 }

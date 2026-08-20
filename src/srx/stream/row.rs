@@ -9,6 +9,7 @@ use quick_xml::reader::Reader;
 use tokio::io::AsyncBufRead;
 
 use super::SrxStreamSink;
+use crate::types::BaseDirection;
 use crate::{Result, ResultRow, ResultValue, SparqlResultsError};
 
 pub(super) async fn parse_result_row<R>(
@@ -72,6 +73,7 @@ where
                         value: String::new(),
                         lang: optional_attr(&e, b"xml:lang")?,
                         datatype: optional_attr(&e, b"datatype")?,
+                        dir: optional_dir(&e)?,
                     });
                 }
                 Event::Text(_) | Event::Comment(_) => {}
@@ -106,6 +108,7 @@ where
             value: read_text_content(reader, buffer, b"literal").await?,
             lang: optional_attr(&start, b"xml:lang")?,
             datatype: optional_attr(&start, b"datatype")?,
+            dir: optional_dir(&start)?,
         }),
         b"bnode" => Ok(ResultValue::BNode(
             read_text_content(reader, buffer, b"bnode").await?,
@@ -277,6 +280,27 @@ fn optional_attr(element: &BytesStart<'_>, name: &[u8]) -> Result<Option<String>
                 .map_err(|err| SparqlResultsError::Xml(err.to_string()))
         })
         .transpose()
+}
+
+/// Read the RDF 1.2 base direction from a `<literal>`'s `its:dir`
+/// attribute, regardless of the namespace prefix bound to the ITS
+/// namespace. An absent attribute yields `None`; an unrecognized token
+/// is reported as an invalid document.
+fn optional_dir(element: &BytesStart<'_>) -> Result<Option<BaseDirection>> {
+    for attribute in element.attributes() {
+        let attribute = attribute.map_err(|err| SparqlResultsError::Xml(err.to_string()))?;
+        if local_name(attribute.key.as_ref()) != b"dir" {
+            continue;
+        }
+        let token = attribute
+            .unescape_value()
+            .map_err(|err| SparqlResultsError::Xml(err.to_string()))?;
+        return token
+            .parse()
+            .map(Some)
+            .map_err(|err| SparqlResultsError::InvalidDocument(format!("{err}")));
+    }
+    Ok(None)
 }
 
 pub(super) fn parse_boolean(text: &str) -> Result<bool> {

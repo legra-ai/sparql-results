@@ -5,7 +5,74 @@
 //! produced by one codec and consumed by the other without
 //! conversion.
 
+use std::fmt;
+use std::str::FromStr;
+
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
+
+/// The base direction of an RDF 1.2 directional language-tagged literal
+/// (`rdf:dirLangString`).
+///
+/// A directional literal carries both a language tag and this base
+/// direction, per the RDF 1.2 / SPARQL 1.2 abstract model. The two
+/// values map to the `"ltr"` / `"rtl"` tokens used on the wire (the
+/// SRJ `"its:dir"` key and the SRX `its:dir` attribute).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BaseDirection {
+    /// Left-to-right base direction (`"ltr"`).
+    Ltr,
+    /// Right-to-left base direction (`"rtl"`).
+    Rtl,
+}
+
+impl BaseDirection {
+    /// The lowercase wire token for this direction (`"ltr"` or `"rtl"`).
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Ltr => "ltr",
+            Self::Rtl => "rtl",
+        }
+    }
+}
+
+impl fmt::Display for BaseDirection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for BaseDirection {
+    type Err = ParseBaseDirectionError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "ltr" => Ok(Self::Ltr),
+            "rtl" => Ok(Self::Rtl),
+            other => Err(ParseBaseDirectionError(other.to_owned())),
+        }
+    }
+}
+
+/// Error returned when a string is not a valid [`BaseDirection`] token.
+///
+/// The only accepted tokens are `"ltr"` and `"rtl"`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseBaseDirectionError(String);
+
+impl fmt::Display for ParseBaseDirectionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "invalid base direction {:?}, expected \"ltr\" or \"rtl\"",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for ParseBaseDirectionError {}
 
 /// A parsed SPARQL result set.
 ///
@@ -59,6 +126,13 @@ pub enum ResultValue {
         lang: Option<String>,
         /// Optional datatype IRI.
         datatype: Option<String>,
+        /// Optional base direction, present only for an RDF 1.2
+        /// directional language-tagged literal (`rdf:dirLangString`).
+        ///
+        /// When this is `Some`, `lang` is also `Some` — a base
+        /// direction only exists alongside a language tag. It maps to
+        /// the SRJ `"its:dir"` key and the SRX `its:dir` attribute.
+        dir: Option<BaseDirection>,
     },
     /// A blank node identifier.
     BNode(String),

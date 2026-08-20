@@ -47,6 +47,7 @@ async fn main() -> sparql_results::Result<()> {
             value: "Ada".to_owned(),
             lang: None,
             datatype: None,
+            dir: None,
         },
     );
     writer.write_row(&ResultRow { bindings: bindings.into_iter().collect() }).await?;

@@ -292,6 +292,7 @@ async fn writers_handle_partial_writes_without_materializing_a_document() {
                     value: "value".to_owned(),
                     lang: None,
                     datatype: Some("urn:mime:text".to_owned()),
+                    dir: None,
                 },
             )]
             .into_iter()
