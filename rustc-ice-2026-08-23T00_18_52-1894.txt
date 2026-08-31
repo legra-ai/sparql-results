@@ -1,0 +1,8 @@
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(0:265 ~ sparql_results[dbaa]::srx::canonicalize::canonicalize_srx::{opaque#0}) }, args: [&'{erased} [u8], srx::canonicalize::tests::TestWriter], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(0:300 ~ sparql_results[dbaa]::srx::canonicalize::tests::canonical::{opaque#0}) }, args: ['{erased}], .. })
+disabled backtrace
+
+
+rustc version: 1.100.0-nightly (c656540d6 2026-08-21)
+platform: aarch64-apple-darwin

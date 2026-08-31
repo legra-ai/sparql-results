@@ -1,0 +1,26 @@
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(27:8486 ~ tokio[2668]::task::yield_now::yield_now::{opaque#0}) }, args: [], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:132 ~ sparql_results[d4bd]::srj::parse::parse_srj_streaming::{opaque#0}) }, args: [FailingReader, GatedSink, '{erased}], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:456 ~ sparql_results[d4bd]::srx::stream::parse_srx_streaming::{opaque#0}) }, args: [FailingReader, GatedSink, '{erased}], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:132 ~ sparql_results[d4bd]::srj::parse::parse_srj_streaming::{opaque#0}) }, args: [&'{erased} [u8], GatedSink, '{erased}], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:456 ~ sparql_results[d4bd]::srx::stream::parse_srx_streaming::{opaque#0}) }, args: [ByteAtATime, CollectSink<'{erased}>, '{erased}], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:202 ~ sparql_results[d4bd]::srj::serialize::{impl#0}::start_select::{opaque#0}) }, args: [FailingWriter, '{erased}], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:328 ~ sparql_results[d4bd]::srx::serialize::{impl#0}::start_select::{opaque#0}) }, args: [FailingWriter, '{erased}], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:265 ~ sparql_results[d4bd]::srx::canonicalize::canonicalize_srx::{opaque#0}) }, args: [&'{erased} [u8], FailingWriter], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:265 ~ sparql_results[d4bd]::srx::canonicalize::canonicalize_srx::{opaque#0}) }, args: [ByteAtATime, OneByteWriter], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:217 ~ sparql_results[d4bd]::srj::serialize::write_srj::{opaque#0}) }, args: [OneByteWriter, '{erased}], .. })
+disabled backtrace
+delayed bug: unexpected rigid alias in layout_of after normalization: Alias(Yes, Alias { kind: Opaque { def_id: DefId(20:340 ~ sparql_results[d4bd]::srx::serialize::write_srx::{opaque#0}) }, args: [OneByteWriter, '{erased}], .. })
+disabled backtrace
+
+
+rustc version: 1.100.0-nightly (c656540d6 2026-08-21)
+platform: aarch64-apple-darwin

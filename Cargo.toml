@@ -12,6 +12,7 @@ documentation = "https://docs.rs/sparql-results"
 keywords = ["sparql", "rdf", "json", "xml", "streaming"]
 categories = ["asynchronous", "encoding", "parser-implementations"]
 readme = "README.md"
+build = "build.rs"
 exclude = ["Cargo.toml.orig", ".cargo_vcs_info.json", "CHANGELOG.md"]
 
 [lib]
@@ -35,9 +36,17 @@ tokio = {
     features = ["io-util", "macros", "rt", "rt-multi-thread", "sync", "time"],
 }
 
+[build-dependencies]
+rhusky = "0.0.6"
+
 [lints.rust]
 missing_docs = "deny"
 
 [lints.clippy]
-all = "warn"
-pedantic = "warn"
+# `large_futures` computes the layout of every async opaque type; on current
+# nightlies that hits a rustc ICE ("unexpected rigid alias in layout_of after
+# normalization"). Stable passes clean. Re-enable once the compiler is fixed.
+large_futures = "allow"
+
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
