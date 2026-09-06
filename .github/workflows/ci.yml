@@ -1,75 +1,97 @@
-name: CI/CD
+name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * *'
 
-env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
-  fmt:
-    name: Format
+  prepare:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      revision: ${{ steps.release.outputs.revision }}
+      version: ${{ steps.release.outputs.version }}
+      release: ${{ steps.release.outputs.release }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@v7
         with:
-          components: rustfmt
-      - name: Check formatting
-        run: cargo +nightly fmt --all -- --check
+          fetch-depth: 0
+      - uses: legra-ai/github-actions/.github/actions/prepare-cargo-release@main
+        id: release
 
-  clippy:
-    name: Clippy
+  test:
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.revision }}
+      - id: formatter
+        run: |
+          IFS= read -r formatter_toolchain < rustfmt-toolchain || exit 1
+          printf 'toolchain=%s\n' "$formatter_toolchain" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.formatter.outputs.toolchain }}
+          components: rustfmt
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: clippy
-          rustflags: ""
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-  test:
-    name: Test and doctest
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Run tests and doctests
-        run: cargo test --all-targets
-
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Build rustdoc
-        run: cargo doc --no-deps --all-features
+      - run: ./scripts/fmt.sh --check
+      - run: cargo test --locked --all-features --all-targets
+      - run: cargo test --locked --all-features --doc
+      - run: python3 scripts/test-package.py
+      - run: python3 scripts/test-commit-policy.py
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo doc --no-deps --all-features
 
   publish:
-    name: Publish to crates.io
+    if: needs.prepare.outputs.release == 'true'
+    needs: [prepare, test]
     runs-on: ubuntu-latest
-    needs: [fmt, clippy, test, docs]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.revision }}
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: cargo publish (treat already published as success)
+      - uses: legra-ai/github-actions/.github/actions/tag-tested-release@main
+        with:
+          version: ${{ needs.prepare.outputs.version }}
+          revision: ${{ needs.prepare.outputs.revision }}
+      - uses: legra-ai/github-actions/.github/actions/generate-changelog@main
+        with:
+          revision: ${{ needs.prepare.outputs.revision }}
+          output-file: CHANGELOG_RELEASE.md
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ needs.prepare.outputs.version }}
+          target_commitish: ${{ needs.prepare.outputs.revision }}
+          body_path: CHANGELOG_RELEASE.md
+          draft: true
+      - uses: legra-ai/github-actions/.github/actions/publish-tested-crate@main
+        with:
+          crate: sparql-results
+          version: ${{ needs.prepare.outputs.version }}
+          revision: ${{ needs.prepare.outputs.revision }}
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-        run: |
-          rc=0
-          LOG=$(cargo publish 2>&1) || rc=$?
-          echo "$LOG"
-          if [ "$rc" -eq 0 ]; then exit 0; fi
-          if echo "$LOG" | grep -q "already exists on crates.io"; then
-            echo "already on crates.io, skipping"
-            exit 0
-          fi
-          exit "$rc"
+      - name: Complete release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: gh release edit "v$RELEASE_VERSION" --draft=false

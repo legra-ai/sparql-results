@@ -32,9 +32,17 @@
 //! produces and the W3C fixture suite consumes.
 
 use quick_xml::Writer;
-use quick_xml::events::{BytesStart, Event};
+use quick_xml::events::{
+    BytesStart,
+    Event,
+};
 use quick_xml::reader::Reader;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{
+    AsyncRead,
+    AsyncWrite,
+    AsyncWriteExt,
+    BufReader,
+};
 
 use crate::SparqlResultsError;
 
@@ -182,7 +190,10 @@ fn io_err(err: &std::io::Error) -> SparqlResultsError {
 #[cfg(test)]
 mod tests {
     use std::pin::Pin;
-    use std::task::{Context, Poll};
+    use std::task::{
+        Context,
+        Poll,
+    };
 
     use super::*;
 

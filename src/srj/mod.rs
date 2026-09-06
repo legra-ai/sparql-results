@@ -15,6 +15,13 @@ mod serialize;
 mod wire;
 
 pub use parse::{
-    SrjStreamKind, SrjStreamSink, SrjStreamSummary, parse_srj_bounded, parse_srj_streaming,
+    SrjStreamKind,
+    SrjStreamSink,
+    SrjStreamSummary,
+    parse_srj_bounded,
+    parse_srj_streaming,
 };
-pub use serialize::{SrjWriter, write_srj};
+pub use serialize::{
+    SrjWriter,
+    write_srj,
+};

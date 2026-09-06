@@ -1,2 +1,4 @@
 /target
 CHANGELOG.md
+/target/
+rustc-ice-*.txt

@@ -5,6 +5,12 @@
 //! bounded result. Unbounded result streams must use the crate-root streaming
 //! parsers and incremental writers instead.
 
-pub use crate::srj::{parse_srj_bounded, write_srj};
-pub use crate::srx::{parse_srx_bounded, write_srx};
+pub use crate::srj::{
+    parse_srj_bounded,
+    write_srj,
+};
+pub use crate::srx::{
+    parse_srx_bounded,
+    write_srx,
+};
 pub use crate::types::SparqlResult;

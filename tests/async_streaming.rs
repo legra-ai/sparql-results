@@ -1,18 +1,42 @@
+// `srj` / `srx` are the two result formats under test, not near-duplicates.
+#![allow(clippy::similar_names)]
 #![allow(missing_docs)]
 
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::task::{Context, Poll};
+use std::sync::atomic::{
+    AtomicUsize,
+    Ordering,
+};
+use std::task::{
+    Context,
+    Poll,
+};
 
-use sparql_results::bounded::{SparqlResult, write_srj, write_srx};
+use sparql_results::bounded::{
+    SparqlResult,
+    write_srj,
+    write_srx,
+};
 use sparql_results::{
-    ResultRow, ResultValue, SrjStreamSink, SrxStreamSink, canonicalize_srx, parse_srj_streaming,
+    ResultRow,
+    ResultValue,
+    SrjStreamSink,
+    SrxStreamSink,
+    canonicalize_srx,
+    parse_srj_streaming,
     parse_srx_streaming,
 };
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::io::{
+    AsyncRead,
+    AsyncWrite,
+    ReadBuf,
+};
 use tokio::sync::Notify;
-use tokio::time::{Duration, timeout};
+use tokio::time::{
+    Duration,
+    timeout,
+};
 
 struct ByteAtATime {
     bytes: Vec<u8>,

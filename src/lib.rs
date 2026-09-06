@@ -20,12 +20,27 @@ pub mod bounded;
 mod srj;
 mod srx;
 
-pub use srj::{SrjStreamKind, SrjStreamSink, SrjStreamSummary, SrjWriter, parse_srj_streaming};
+pub use srj::{
+    SrjStreamKind,
+    SrjStreamSink,
+    SrjStreamSummary,
+    SrjWriter,
+    parse_srj_streaming,
+};
 pub use srx::{
-    SrxStreamKind, SrxStreamSink, SrxStreamSummary, SrxWriter, canonicalize_srx,
+    SrxStreamKind,
+    SrxStreamSink,
+    SrxStreamSummary,
+    SrxWriter,
+    canonicalize_srx,
     parse_srx_streaming,
 };
-pub use types::{BaseDirection, ParseBaseDirectionError, ResultRow, ResultValue};
+pub use types::{
+    BaseDirection,
+    ParseBaseDirectionError,
+    ResultRow,
+    ResultValue,
+};
 
 /// Errors raised while parsing or serializing SPARQL query result
 /// documents in SRX or SRJ form.

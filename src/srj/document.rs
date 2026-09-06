@@ -5,9 +5,22 @@ use std::pin::Pin;
 
 use indexmap::IndexMap;
 
-use super::parse::{SrjStreamKind, SrjStreamSink, SrjStreamSummary};
-use super::reader::{JsonReader, Token, TokenKind};
-use crate::{Result, ResultRow, ResultValue, SparqlResultsError};
+use super::parse::{
+    SrjStreamKind,
+    SrjStreamSink,
+    SrjStreamSummary,
+};
+use super::reader::{
+    JsonReader,
+    Token,
+    TokenKind,
+};
+use crate::{
+    Result,
+    ResultRow,
+    ResultValue,
+    SparqlResultsError,
+};
 
 impl<R> JsonReader<R>
 where

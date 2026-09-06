@@ -2,13 +2,27 @@
 
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
-use tokio::io::{AsyncBufRead, AsyncRead, BufReader};
+use tokio::io::{
+    AsyncBufRead,
+    AsyncRead,
+    BufReader,
+};
 
-use crate::{Result, ResultRow, SparqlResultsError};
+use crate::{
+    Result,
+    ResultRow,
+    SparqlResultsError,
+};
 
 mod row;
 
-use row::{expect_end, parse_boolean, parse_result_row, read_text_content, send_header_once};
+use row::{
+    expect_end,
+    parse_boolean,
+    parse_result_row,
+    read_text_content,
+    send_header_once,
+};
 
 /// Streaming SRX result shape.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

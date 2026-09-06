@@ -2,11 +2,23 @@
 
 use std::collections::BTreeMap;
 
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio::io::{
+    AsyncWrite,
+    AsyncWriteExt,
+};
 
-use crate::srj::wire::{SrjBinding, SrjTripleValue, SrjValue};
+use crate::srj::wire::{
+    SrjBinding,
+    SrjTripleValue,
+    SrjValue,
+};
 use crate::types::SparqlResult;
-use crate::{Result, ResultRow, ResultValue, SparqlResultsError};
+use crate::{
+    Result,
+    ResultRow,
+    ResultValue,
+    SparqlResultsError,
+};
 
 /// Incremental SRJ SELECT serializer.
 pub struct SrjWriter<W: AsyncWrite + Unpin> {

@@ -12,5 +12,13 @@ mod stream;
 
 pub use canonicalize::canonicalize_srx;
 pub use parse::parse_srx_bounded;
-pub use serialize::{SrxWriter, write_srx};
-pub use stream::{SrxStreamKind, SrxStreamSink, SrxStreamSummary, parse_srx_streaming};
+pub use serialize::{
+    SrxWriter,
+    write_srx,
+};
+pub use stream::{
+    SrxStreamKind,
+    SrxStreamSink,
+    SrxStreamSummary,
+    parse_srx_streaming,
+};

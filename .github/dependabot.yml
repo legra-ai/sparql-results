@@ -1,50 +1,25 @@
-# Dependabot configuration for automated dependency updates.
 version: 2
 updates:
-  - package-ecosystem: "cargo"
-    directory: "/"
+  - package-ecosystem: cargo
+    directory: /
     schedule:
-      interval: "weekly"
-      day: "sunday"
-      time: "22:00"
-      timezone: "Etc/UTC"
-    groups:
-      all-dependencies:
-        applies-to: "version-updates"
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-      security-updates:
-        applies-to: "security-updates"
-        patterns:
-          - "*"
+      interval: daily
     allow:
-      - dependency-type: "all"
-    versioning-strategy: "auto"
-    open-pull-requests-limit: 2
-    labels:
-      - "dependencies"
-      - "automated"
-    commit-message:
-      prefix: "build"
-      prefix-development: "build"
-      include: "scope"
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "sunday"
-      time: "22:00"
-      timezone: "Etc/UTC"
+      - dependency-type: all
     groups:
-      github-actions:
-        patterns:
-          - "*"
-    labels:
-      - "github-actions"
-      - "automated"
+      compatible:
+        update-types: [minor, patch]
+        patterns: ['*']
+      security:
+        applies-to: security-updates
+        patterns: ['*']
     commit-message:
-      prefix: "ci"
+      prefix: build
+      include: scope
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    commit-message:
+      prefix: ci
+      include: scope

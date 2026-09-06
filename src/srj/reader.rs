@@ -1,8 +1,14 @@
 //! Low-level bounded-memory JSON token reader for SRJ.
 
-use tokio::io::{AsyncRead, AsyncReadExt};
+use tokio::io::{
+    AsyncRead,
+    AsyncReadExt,
+};
 
-use crate::{Result, SparqlResultsError};
+use crate::{
+    Result,
+    SparqlResultsError,
+};
 
 const READ_CHUNK_BYTES: usize = 8 * 1024;
 
