@@ -4,7 +4,10 @@ use tokio::io::AsyncRead;
 
 use super::reader::JsonReader;
 use crate::types::SparqlResult;
-use crate::{Result, ResultRow};
+use crate::{
+    Result,
+    ResultRow,
+};
 
 /// Shape observed by [`parse_srj_streaming`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

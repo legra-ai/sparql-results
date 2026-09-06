@@ -3,18 +3,39 @@
 use std::fmt::Write as _;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::task::{Context, Poll};
+use std::sync::atomic::{
+    AtomicUsize,
+    Ordering,
+};
+use std::task::{
+    Context,
+    Poll,
+};
 
 use indexmap::IndexMap;
 use sparql_results::bounded::{
-    SparqlResult, parse_srj_bounded, parse_srx_bounded, write_srj, write_srx,
+    SparqlResult,
+    parse_srj_bounded,
+    parse_srx_bounded,
+    write_srj,
+    write_srx,
 };
 use sparql_results::{
-    BaseDirection, Result, ResultRow, ResultValue, SparqlResultsError, SrjStreamSink,
-    SrxStreamSink, canonicalize_srx, parse_srj_streaming,
+    BaseDirection,
+    Result,
+    ResultRow,
+    ResultValue,
+    SparqlResultsError,
+    SrjStreamSink,
+    SrxStreamSink,
+    canonicalize_srx,
+    parse_srj_streaming,
 };
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::io::{
+    AsyncRead,
+    AsyncWrite,
+    ReadBuf,
+};
 
 struct OneByteReader {
     input: Vec<u8>,

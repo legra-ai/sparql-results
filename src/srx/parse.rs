@@ -1,8 +1,14 @@
 //! Bounded/materialized SRX parsing.
 
-use super::stream::{SrxStreamSink, parse_srx_streaming};
+use super::stream::{
+    SrxStreamSink,
+    parse_srx_streaming,
+};
 use crate::types::SparqlResult;
-use crate::{Result, ResultRow};
+use crate::{
+    Result,
+    ResultRow,
+};
 
 /// Parse a bounded SRX document into the materialized result model.
 ///

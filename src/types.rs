@@ -9,7 +9,10 @@ use std::fmt;
 use std::str::FromStr;
 
 use indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 /// The base direction of an RDF 1.2 directional language-tagged literal
 /// (`rdf:dirLangString`).

@@ -4,13 +4,21 @@ use std::future::Future;
 use std::pin::Pin;
 
 use indexmap::IndexMap;
-use quick_xml::events::{BytesStart, Event};
+use quick_xml::events::{
+    BytesStart,
+    Event,
+};
 use quick_xml::reader::Reader;
 use tokio::io::AsyncBufRead;
 
 use super::SrxStreamSink;
 use crate::types::BaseDirection;
-use crate::{Result, ResultRow, ResultValue, SparqlResultsError};
+use crate::{
+    Result,
+    ResultRow,
+    ResultValue,
+    SparqlResultsError,
+};
 
 pub(super) async fn parse_result_row<R>(
     reader: &mut Reader<R>,

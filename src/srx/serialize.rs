@@ -4,11 +4,25 @@ use std::future::Future;
 use std::pin::Pin;
 
 use quick_xml::Writer;
-use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use quick_xml::events::{
+    BytesDecl,
+    BytesEnd,
+    BytesStart,
+    BytesText,
+    Event,
+};
+use tokio::io::{
+    AsyncWrite,
+    AsyncWriteExt,
+};
 
 use crate::types::SparqlResult;
-use crate::{Result, ResultRow, ResultValue, SparqlResultsError};
+use crate::{
+    Result,
+    ResultRow,
+    ResultValue,
+    SparqlResultsError,
+};
 
 const SPARQL_NS: &str = "http://www.w3.org/2005/sparql-results#";
 /// W3C Internationalization Tag Set namespace, source of the `its:dir`
