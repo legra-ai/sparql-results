@@ -2,7 +2,7 @@
 name = "sparql-results"
 version = "0.2.1"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.99.1"
 license = "MIT OR Apache-2.0"
 authors = ["Jacobus Geluk <jacobus.geluk@dataroad.com>"]
 description = "Async streaming parsers and serializers for SPARQL Query Results XML and JSON"
