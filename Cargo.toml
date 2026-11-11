@@ -42,7 +42,7 @@ tokio = { version = "1", features = ["io-util"] }
 tokio = { version = "1", features = ["io-util", "macros", "rt", "rt-multi-thread", "sync", "time"] }
 
 [build-dependencies]
-rhusky = "0.0.6"
+rhusky = "2.0.5"
 
 [lints.rust]
 missing_docs = "deny"
