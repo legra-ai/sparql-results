@@ -15,6 +15,10 @@ use super::reader::{
     Token,
     TokenKind,
 };
+use crate::literal::{
+    LiteralAnnotations,
+    LiteralError,
+};
 use crate::{
     Result,
     ResultRow,
@@ -190,6 +194,7 @@ where
                         })?);
                     }
                     "datatype" => datatype = Some(self.expect_string().await?),
+                    "dir" => return Err(LiteralError::BareDirKey.into()),
                     _ => self.skip_value().await?,
                 }
                 if !self.consume_comma_or_end().await? {
@@ -201,12 +206,8 @@ where
             match term_type.as_str() {
                 "uri" => Ok(ResultValue::Uri(expect_string_value(value)?)),
                 "bnode" => Ok(ResultValue::BNode(expect_string_value(value)?)),
-                "literal" => Ok(ResultValue::Literal {
-                    value: expect_string_value(value)?,
-                    lang,
-                    datatype,
-                    dir,
-                }),
+                "literal" => LiteralAnnotations::new(lang, datatype, dir)
+                    .into_literal(expect_string_value(value)?),
                 "triple" => match value {
                     Some(JsonValueField::Triple {
                         subject,

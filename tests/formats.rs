@@ -228,7 +228,9 @@ async fn async_writers_round_trip_through_partial_writes() {
                 ResultValue::Literal {
                     value: "v".to_owned(),
                     lang: Some("en".to_owned()),
-                    datatype: Some("urn:mime:text".to_owned()),
+                    datatype: Some(
+                        "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString".to_owned(),
+                    ),
                     dir: None,
                 },
             )]),

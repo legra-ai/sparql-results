@@ -12,6 +12,10 @@ use quick_xml::reader::Reader;
 use tokio::io::AsyncBufRead;
 
 use super::SrxStreamSink;
+use crate::literal::{
+    LiteralAnnotations,
+    LiteralError,
+};
 use crate::types::BaseDirection;
 use crate::{
     Result,
@@ -77,12 +81,7 @@ where
                     return parse_value_from_start(reader, buffer, start).await;
                 }
                 Event::Empty(e) if local_name(e.name().as_ref()) == b"literal" => {
-                    return Ok(ResultValue::Literal {
-                        value: String::new(),
-                        lang: optional_attr(&e, b"xml:lang")?,
-                        datatype: optional_attr(&e, b"datatype")?,
-                        dir: optional_dir(&e)?,
-                    });
+                    return literal_annotations(&e)?.into_literal(String::new());
                 }
                 Event::Text(_) | Event::Comment(_) => {}
                 Event::Eof => {
@@ -112,12 +111,10 @@ where
         b"uri" => Ok(ResultValue::Uri(
             read_text_content(reader, buffer, b"uri").await?,
         )),
-        b"literal" => Ok(ResultValue::Literal {
-            value: read_text_content(reader, buffer, b"literal").await?,
-            lang: optional_attr(&start, b"xml:lang")?,
-            datatype: optional_attr(&start, b"datatype")?,
-            dir: optional_dir(&start)?,
-        }),
+        b"literal" => {
+            let annotations = literal_annotations(&start)?;
+            annotations.into_literal(read_text_content(reader, buffer, b"literal").await?)
+        }
         b"bnode" => Ok(ResultValue::BNode(
             read_text_content(reader, buffer, b"bnode").await?,
         )),
@@ -290,14 +287,27 @@ fn optional_attr(element: &BytesStart<'_>, name: &[u8]) -> Result<Option<String>
         .transpose()
 }
 
+fn literal_annotations(element: &BytesStart<'_>) -> Result<LiteralAnnotations> {
+    Ok(LiteralAnnotations::new(
+        optional_attr(element, b"xml:lang")?,
+        optional_attr(element, b"datatype")?,
+        optional_dir(element)?,
+    ))
+}
+
 /// Read the RDF 1.2 base direction from a `<literal>`'s `its:dir`
 /// attribute, regardless of the namespace prefix bound to the ITS
 /// namespace. An absent attribute yields `None`; an unrecognized token
-/// is reported as an invalid document.
+/// is reported as an invalid document, and an unprefixed `dir`
+/// attribute is refused as [`LiteralError::BareDirKey`].
 fn optional_dir(element: &BytesStart<'_>) -> Result<Option<BaseDirection>> {
     for attribute in element.attributes() {
         let attribute = attribute.map_err(|err| SparqlResultsError::Xml(err.to_string()))?;
-        if local_name(attribute.key.as_ref()) != b"dir" {
+        let key = attribute.key.as_ref();
+        if key == b"dir" {
+            return Err(LiteralError::BareDirKey.into());
+        }
+        if local_name(key) != b"dir" {
             continue;
         }
         let token = attribute
