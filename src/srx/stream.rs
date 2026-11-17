@@ -10,18 +10,20 @@ use tokio::io::{
 
 use crate::{
     Result,
+    ResultHead,
     ResultRow,
     SparqlResultsError,
 };
 
+mod pending_head;
 mod row;
 
+use pending_head::PendingHead;
 use row::{
     expect_end,
     parse_boolean,
     parse_result_row,
     read_text_content,
-    send_header_once,
 };
 
 /// Streaming SRX result shape.
@@ -46,11 +48,11 @@ pub struct SrxStreamSummary {
 #[async_trait::async_trait]
 pub trait SrxStreamSink {
     /// Accept a SELECT header.
-    async fn select_header(&mut self, vars: Vec<String>) -> Result<()>;
+    async fn select_header(&mut self, head: ResultHead) -> Result<()>;
     /// Accept exactly one SELECT row.
     async fn select_row(&mut self, row: ResultRow) -> Result<()>;
     /// Accept an ASK result.
-    async fn ask(&mut self, result: bool) -> Result<()>;
+    async fn ask(&mut self, head: ResultHead, result: bool) -> Result<()>;
 }
 
 /// Parse SRX directly from an async reader, awaiting each sink operation
@@ -75,10 +77,9 @@ where
 {
     let mut reader = Reader::from_reader(reader);
     let mut buffer = Vec::new();
-    let mut vars = Vec::new();
+    let mut head = PendingHead::default();
     let mut row_count = 0_u64;
     let mut saw_results = false;
-    let mut header_sent = false;
     let mut boolean_value = None;
     let mut root_closed = false;
     let mut results_closed = false;
@@ -91,10 +92,13 @@ where
         match event {
             Event::Start(e) => match local_name(e.name().as_ref()) {
                 b"sparql" | b"head" => {}
-                b"link" => expect_end(&mut reader, &mut buffer, b"link").await?,
+                b"link" => {
+                    head.push_link(required_attr(&e, b"href")?);
+                    expect_end(&mut reader, &mut buffer, b"link").await?;
+                }
                 b"results" => {
                     saw_results = true;
-                    send_header_once(sink, &vars, &mut header_sent).await?;
+                    head.send_select(sink).await?;
                 }
                 b"result" => {
                     let row = parse_result_row(&mut reader, &mut buffer).await?;
@@ -106,7 +110,7 @@ where
                 b"boolean" => {
                     let text = read_text_content(&mut reader, &mut buffer, b"boolean").await?;
                     let result = parse_boolean(&text)?;
-                    sink.ask(result).await?;
+                    sink.ask(head.take_ask()?, result).await?;
                     if boolean_value.replace(result).is_some() {
                         return Err(SparqlResultsError::InvalidDocument(
                             "SRX contains multiple boolean results".to_owned(),
@@ -120,11 +124,12 @@ where
                 }
             },
             Event::Empty(e) => match local_name(e.name().as_ref()) {
-                b"head" | b"link" => {}
-                b"variable" => vars.push(required_attr(&e, b"name")?),
+                b"head" => {}
+                b"link" => head.push_link(required_attr(&e, b"href")?),
+                b"variable" => head.push_var(required_attr(&e, b"name")?),
                 b"results" => {
                     saw_results = true;
-                    send_header_once(sink, &vars, &mut header_sent).await?;
+                    head.send_select(sink).await?;
                     results_closed = true;
                 }
                 other => {

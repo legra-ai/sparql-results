@@ -51,10 +51,40 @@ impl LiteralAnnotations {
     }
 
     fn validate(&self) -> Result<(), LiteralError> {
-        match &self.lang {
+        LiteralCheck::new(self.lang.as_deref(), self.datatype.as_deref(), self.dir).validate()
+    }
+}
+
+/// Borrowed literal annotations, checked without taking ownership; used by
+/// the readers (through [`LiteralAnnotations`]) and by the writers.
+pub(crate) struct LiteralCheck<'a> {
+    lang: Option<&'a str>,
+    datatype: Option<&'a str>,
+    dir: Option<BaseDirection>,
+}
+
+impl<'a> LiteralCheck<'a> {
+    pub(crate) const fn new(
+        lang: Option<&'a str>,
+        datatype: Option<&'a str>,
+        dir: Option<BaseDirection>,
+    ) -> Self {
+        Self {
+            lang,
+            datatype,
+            dir,
+        }
+    }
+
+    /// Validate the annotations.
+    ///
+    /// # Errors
+    /// Returns the [`LiteralError`] describing the first inconsistency.
+    pub(crate) fn validate(&self) -> Result<(), LiteralError> {
+        match self.lang {
             Some(lang) => {
                 if !LanguageTagSyntax::new(lang).is_well_formed() {
-                    return Err(LiteralError::InvalidLanguageTag(lang.clone()));
+                    return Err(LiteralError::InvalidLanguageTag(lang.to_owned()));
                 }
                 self.validate_language_datatype()
             }
@@ -73,10 +103,10 @@ impl LiteralAnnotations {
 
     fn validate_language_datatype(&self) -> Result<(), LiteralError> {
         let expected = self.implied_datatype();
-        match &self.datatype {
+        match self.datatype {
             Some(datatype) if datatype != expected => {
                 Err(LiteralError::DatatypeContradictsLanguage {
-                    datatype: datatype.clone(),
+                    datatype: datatype.to_owned(),
                     expected,
                 })
             }
@@ -85,10 +115,10 @@ impl LiteralAnnotations {
     }
 
     fn validate_plain_datatype(&self) -> Result<(), LiteralError> {
-        match &self.datatype {
+        match self.datatype {
             Some(datatype) if datatype == RDF_LANG_STRING || datatype == RDF_DIR_LANG_STRING => {
                 Err(LiteralError::DatatypeRequiresLanguage {
-                    datatype: datatype.clone(),
+                    datatype: datatype.to_owned(),
                 })
             }
             _ => Ok(()),

@@ -19,6 +19,7 @@ include = [
     "build.rs",
     "src/**/*.rs",
     "tests/**/*.rs",
+    "tests/fixtures/**",
 ]
 build = "build.rs"
 exclude = ["Cargo.toml.orig", ".cargo_vcs_info.json", "CHANGELOG.md"]

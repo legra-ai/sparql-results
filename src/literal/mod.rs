@@ -5,7 +5,10 @@ mod annotations;
 mod error;
 mod language_tag;
 
-pub(crate) use annotations::LiteralAnnotations;
+pub(crate) use annotations::{
+    LiteralAnnotations,
+    LiteralCheck,
+};
 pub use error::LiteralError;
 
 #[cfg(test)]

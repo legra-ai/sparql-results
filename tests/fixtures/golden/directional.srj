@@ -1,0 +1,1 @@
+{"head":{"vars":["x"]},"results":{"bindings":[{"x":{"type":"literal","value":"مرحبا","xml:lang":"ar","its:dir":"rtl"}},{"x":{"type":"literal","value":"Hello","xml:lang":"en","its:dir":"ltr"}},{"x":{"type":"literal","value":"Hallo","xml:lang":"nl"}}]}}

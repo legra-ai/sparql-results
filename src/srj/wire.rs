@@ -72,3 +72,15 @@ pub(super) struct SrjTripleValue {
     /// Triple object term.
     pub(super) object: SrjValue,
 }
+
+/// The `head` object. `vars` is omitted for ASK; `link` is omitted when
+/// there are no links.
+#[derive(Debug, Serialize)]
+pub(super) struct SrjHead<'a> {
+    /// Projected variables (SELECT only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) vars: Option<&'a [String]>,
+    /// Link IRIs.
+    #[serde(skip_serializing_if = "<[String]>::is_empty")]
+    pub(super) link: &'a [String],
+}
