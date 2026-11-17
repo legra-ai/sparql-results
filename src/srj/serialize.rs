@@ -9,12 +9,14 @@ use tokio::io::{
 
 use crate::srj::wire::{
     SrjBinding,
+    SrjHead,
     SrjTripleValue,
     SrjValue,
 };
 use crate::types::SparqlResult;
 use crate::{
     Result,
+    ResultHead,
     ResultRow,
     ResultValue,
     SparqlResultsError,
@@ -23,6 +25,7 @@ use crate::{
 /// Incremental SRJ SELECT serializer.
 pub struct SrjWriter<W: AsyncWrite + Unpin> {
     writer: W,
+    head: ResultHead,
     first_row: bool,
     finished: bool,
 }
@@ -33,18 +36,15 @@ impl<W: AsyncWrite + Unpin> SrjWriter<W> {
     /// # Errors
     ///
     /// Returns an error if the underlying writer rejects any output.
-    pub async fn start_select(mut writer: W, vars: &[String]) -> Result<Self> {
+    pub async fn start_select(mut writer: W, head: &ResultHead) -> Result<Self> {
+        write_head(&mut writer, head, Some(head.vars())).await?;
         writer
-            .write_all(br#"{"head":{"vars":"#)
-            .await
-            .map_err(|error| json_io(&error))?;
-        write_json_value(&mut writer, vars).await?;
-        writer
-            .write_all(br#"},"results":{"bindings":["#)
+            .write_all(br#","results":{"bindings":["#)
             .await
             .map_err(|error| json_io(&error))?;
         Ok(Self {
             writer,
+            head: head.clone(),
             first_row: true,
             finished: false,
         })
@@ -52,24 +52,33 @@ impl<W: AsyncWrite + Unpin> SrjWriter<W> {
 
     /// Write one binding row and await completion before returning.
     ///
+    /// The row is checked against the header first; a refused row writes
+    /// nothing.
+    ///
     /// # Errors
     ///
-    /// Returns an error if the writer rejects output or this writer has
-    /// already been finished.
+    /// Returns an error if the row binds an undeclared variable or holds an
+    /// invalid term, the writer rejects output, or this writer has already
+    /// been finished.
     pub async fn write_row(&mut self, row: &ResultRow) -> Result<()> {
         if self.finished {
             return Err(SparqlResultsError::InvalidDocument(
                 "SRJ writer already finished".to_owned(),
             ));
         }
-        if !self.first_row {
-            self.writer
-                .write_all(b",")
-                .await
-                .map_err(|error| json_io(&error))?;
-        }
+        row.check_against(&self.head)?;
+        let mut bytes = if self.first_row {
+            Vec::new()
+        } else {
+            vec![b',']
+        }; // bounded: one row
+        serde_json::to_writer(&mut bytes, &row_to_binding(row))
+            .map_err(|err| SparqlResultsError::Json(err.to_string()))?;
         self.first_row = false;
-        write_json_value(&mut self.writer, &row_to_binding(row)).await
+        self.writer
+            .write_all(&bytes)
+            .await
+            .map_err(|error| json_io(&error))
     }
 
     /// Finish the document and return the underlying writer.
@@ -100,28 +109,35 @@ impl<W: AsyncWrite + Unpin> SrjWriter<W> {
 /// bounded callers. Large result sets should create [`SrjWriter`] and call
 /// [`SrjWriter::write_row`] once per row.
 ///
+/// The whole result is checked before the first byte is written, so a
+/// refused result writes nothing.
+///
 /// # Errors
 ///
-/// Returns an error if the underlying writer rejects output.
+/// Returns an error if the result is invalid (an ASK header with
+/// variables, or a row that cannot be written under its header) or the
+/// underlying writer rejects output.
 pub async fn write_srj<W>(writer: W, result: &SparqlResult) -> Result<W>
 where
     W: AsyncWrite + Unpin,
 {
+    result.check()?;
     match result {
-        SparqlResult::Select { vars, rows } => {
-            let mut writer = SrjWriter::start_select(writer, vars).await?;
+        SparqlResult::Select { head, rows } => {
+            let mut writer = SrjWriter::start_select(writer, head).await?;
             for row in rows {
                 writer.write_row(row).await?;
             }
             writer.finish().await
         }
-        SparqlResult::Ask { result } => {
+        SparqlResult::Ask { head, result } => {
             let mut writer = writer;
+            write_head(&mut writer, head, None).await?;
             writer
                 .write_all(if *result {
-                    br#"{"head":{},"boolean":true}"#
+                    br#","boolean":true}"#
                 } else {
-                    br#"{"head":{},"boolean":false}"#
+                    br#","boolean":false}"#
                 })
                 .await
                 .map_err(|error| json_io(&error))?;
@@ -131,13 +147,20 @@ where
     }
 }
 
-async fn write_json_value<W, T>(writer: &mut W, value: &T) -> Result<()>
+/// Write `{"head":{...}` — the document opening and its header object.
+async fn write_head<W>(writer: &mut W, head: &ResultHead, vars: Option<&[String]>) -> Result<()>
 where
     W: AsyncWrite + Unpin,
-    T: serde::Serialize + ?Sized,
 {
-    let bytes =
-        serde_json::to_vec(value).map_err(|err| SparqlResultsError::Json(err.to_string()))?;
+    let mut bytes = br#"{"head":"#.to_vec(); // bounded: one header
+    serde_json::to_writer(
+        &mut bytes,
+        &SrjHead {
+            vars,
+            link: head.links(),
+        },
+    )
+    .map_err(|err| SparqlResultsError::Json(err.to_string()))?;
     writer
         .write_all(&bytes)
         .await

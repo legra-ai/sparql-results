@@ -1,8 +1,8 @@
-//! Typed reasons a result literal is refused on read.
+//! Typed reasons a result literal is refused on read or write.
 
 use std::fmt;
 
-/// Why a literal's annotations were refused while reading a results
+/// Why a literal's annotations were refused while reading or writing a results
 /// document.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LiteralError {

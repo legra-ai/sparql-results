@@ -20,7 +20,9 @@ use crate::literal::{
     LiteralError,
 };
 use crate::{
+    HeaderError,
     Result,
+    ResultHead,
     ResultRow,
     ResultValue,
     SparqlResultsError,
@@ -48,12 +50,8 @@ where
                     head = Some(self.parse_head().await?);
                 }
                 "results" => {
-                    let vars = head.take().ok_or_else(|| {
-                        SparqlResultsError::InvalidDocument(
-                            "SRJ results appeared before head".to_owned(),
-                        )
-                    })?;
-                    sink.select_header(vars).await?;
+                    let head = head.take().ok_or(HeaderError::BodyBeforeHead)?;
+                    sink.select_header(head).await?;
                     let row_count = self.parse_results(sink).await?;
                     summary = Some(SrjStreamSummary {
                         kind: SrjStreamKind::Select,
@@ -61,8 +59,10 @@ where
                     });
                 }
                 "boolean" => {
+                    let head = head.take().ok_or(HeaderError::BodyBeforeHead)?;
+                    head.check_ask()?;
                     let result = self.expect_bool().await?;
-                    sink.ask(result).await?;
+                    sink.ask(head, result).await?;
                     summary = Some(SrjStreamSummary {
                         kind: SrjStreamKind::Ask,
                         row_count: 1,
@@ -79,24 +79,26 @@ where
             .ok_or_else(|| SparqlResultsError::MissingElement("SRJ results or boolean".to_owned()))
     }
 
-    async fn parse_head(&mut self) -> Result<Vec<String>> {
+    async fn parse_head(&mut self) -> Result<ResultHead> {
         self.expect(TokenKind::ObjectStart).await?;
         let mut vars = Vec::new();
+        let mut links = Vec::new();
         loop {
             if self.next_is(TokenKind::ObjectEnd).await? {
-                return Ok(vars);
+                break;
             }
             let key = self.expect_string().await?;
             self.expect(TokenKind::Colon).await?;
-            if key == "vars" {
-                vars = self.parse_vars_array().await?;
-            } else {
-                self.skip_value().await?;
+            match key.as_str() {
+                "vars" => vars = self.parse_string_array().await?,
+                "link" => links = self.parse_string_array().await?,
+                _ => self.skip_value().await?,
             }
             if !self.consume_comma_or_end().await? {
-                return Ok(vars);
+                break;
             }
         }
+        Ok(ResultHead::try_new(vars, links)?)
     }
 
     async fn parse_results<S>(&mut self, sink: &mut S) -> Result<u64>
@@ -123,7 +125,7 @@ where
         row_count.ok_or_else(|| SparqlResultsError::MissingElement("SRJ bindings".to_owned()))
     }
 
-    async fn parse_vars_array(&mut self) -> Result<Vec<String>> {
+    async fn parse_string_array(&mut self) -> Result<Vec<String>> {
         self.expect(TokenKind::ArrayStart).await?;
         let mut vars = Vec::new();
         while !self.next_is(TokenKind::ArrayEnd).await? {

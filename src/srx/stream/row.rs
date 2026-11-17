@@ -11,7 +11,6 @@ use quick_xml::events::{
 use quick_xml::reader::Reader;
 use tokio::io::AsyncBufRead;
 
-use super::SrxStreamSink;
 use crate::literal::{
     LiteralAnnotations,
     LiteralError,
@@ -355,19 +354,4 @@ fn resolve_entity(name: &str) -> String {
 
 fn xml_err(error: &quick_xml::Error) -> SparqlResultsError {
     SparqlResultsError::Xml(error.to_string())
-}
-
-pub(super) async fn send_header_once<S>(
-    sink: &mut S,
-    vars: &[String],
-    sent: &mut bool,
-) -> Result<()>
-where
-    S: SrxStreamSink + Send,
-{
-    if !*sent {
-        sink.select_header(vars.to_vec()).await?;
-        *sent = true;
-    }
-    Ok(())
 }

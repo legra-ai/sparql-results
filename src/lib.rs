@@ -13,7 +13,9 @@
 //! directly to Tokio async writers. Complete-document materialization is
 //! isolated in the explicit [`bounded`] module.
 
+mod head;
 mod literal;
+mod row;
 mod types;
 
 pub mod bounded;
@@ -21,7 +23,12 @@ pub mod bounded;
 mod srj;
 mod srx;
 
+pub use head::{
+    HeaderError,
+    ResultHead,
+};
 pub use literal::LiteralError;
+pub use row::RowError;
 pub use srj::{
     SrjStreamKind,
     SrjStreamSink,
@@ -67,6 +74,12 @@ pub enum SparqlResultsError {
     /// or contradictory.
     #[error("invalid literal: {0}")]
     InvalidLiteral(#[from] LiteralError),
+    /// The result header is invalid, or does not fit the result kind.
+    #[error("invalid header: {0}")]
+    InvalidHeader(#[from] HeaderError),
+    /// A row cannot be written under its header.
+    #[error("invalid row: {0}")]
+    InvalidRow(#[from] RowError),
 }
 
 /// Result type used by all public parser and serializer operations.

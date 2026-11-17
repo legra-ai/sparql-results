@@ -30,15 +30,13 @@ Create a writer once, write each row as it becomes available, and finish the
 document explicitly. No result-set-sized buffer is required.
 
 ```rust
-use sparql_results::{ResultRow, ResultValue, SrjWriter};
+use sparql_results::{ResultHead, ResultRow, ResultValue, SrjWriter};
 use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> sparql_results::Result<()> {
-    let mut writer = SrjWriter::start_select(
-        tokio::io::sink(),
-        &["name".to_owned()],
-    ).await?;
+    let head = ResultHead::select(vec!["name".to_owned()])?;
+    let mut writer = SrjWriter::start_select(tokio::io::sink(), &head).await?;
 
     let mut bindings = HashMap::new();
     bindings.insert(
@@ -59,20 +57,31 @@ async fn main() -> sparql_results::Result<()> {
 `SrxWriter` provides the equivalent incremental XML serializer. Both writers
 await every downstream write, preserving backpressure.
 
+A `ResultHead` holds the projected variables and any `link` IRIs. It is valid
+by construction: every variable is a SPARQL `VARNAME`, declared once
+(`HeaderError`). Writers check before they write, so a refusal emits zero
+bytes: `write_row` refuses a row that binds an undeclared variable, holds an
+invalid literal, or has a triple term whose subject is not an IRI or blank
+node or whose predicate is not an IRI (`RowError`); `write_srj` / `write_srx`
+check the whole bounded result first, including that an ASK header declares
+no variables. Output is deterministic: SRJ bindings are written in variable
+name order, SRX bindings in row order.
+
 ## Streaming parsing
 
-Parsers emit the header, each row, or the ASK result to an async sink before
-reading more input. A sink can forward rows to a database, another encoder,
-or an application stream without collecting the document.
+Parsers emit the header (variables and `link` IRIs), each row, or the ASK
+result to an async sink before reading more input. A sink can forward rows
+to a database, another encoder, or an application stream without collecting
+the document.
 
 ```rust
-use sparql_results::{ResultRow, ResultValue, SrjStreamSink, parse_srj_streaming};
+use sparql_results::{ResultHead, ResultRow, ResultValue, SrjStreamSink, parse_srj_streaming};
 
 struct RowSink;
 
 #[async_trait::async_trait]
 impl SrjStreamSink for RowSink {
-    async fn select_header(&mut self, _vars: Vec<String>) -> sparql_results::Result<()> {
+    async fn select_header(&mut self, _head: ResultHead) -> sparql_results::Result<()> {
         Ok(())
     }
 
@@ -84,7 +93,7 @@ impl SrjStreamSink for RowSink {
         Ok(())
     }
 
-    async fn ask(&mut self, _result: bool) -> sparql_results::Result<()> {
+    async fn ask(&mut self, _head: ResultHead, _result: bool) -> sparql_results::Result<()> {
         Ok(())
     }
 }

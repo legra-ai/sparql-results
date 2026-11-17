@@ -7,6 +7,7 @@ use super::stream::{
 use crate::types::SparqlResult;
 use crate::{
     Result,
+    ResultHead,
     ResultRow,
 };
 
@@ -31,7 +32,7 @@ where
 
 #[derive(Default)]
 struct MaterializedSink {
-    vars: Vec<String>,
+    head: ResultHead,
     rows: Vec<ResultRow>, // bounded: explicitly requested materialized API
     ask: Option<bool>,
 }
@@ -39,9 +40,12 @@ struct MaterializedSink {
 impl MaterializedSink {
     fn result(self) -> SparqlResult {
         match self.ask {
-            Some(result) => SparqlResult::Ask { result },
+            Some(result) => SparqlResult::Ask {
+                head: self.head,
+                result,
+            },
             None => SparqlResult::Select {
-                vars: self.vars,
+                head: self.head,
                 rows: self.rows,
             },
         }
@@ -50,8 +54,8 @@ impl MaterializedSink {
 
 #[async_trait::async_trait]
 impl SrxStreamSink for MaterializedSink {
-    async fn select_header(&mut self, vars: Vec<String>) -> Result<()> {
-        self.vars = vars;
+    async fn select_header(&mut self, head: ResultHead) -> Result<()> {
+        self.head = head;
         Ok(())
     }
 
@@ -60,7 +64,8 @@ impl SrxStreamSink for MaterializedSink {
         Ok(())
     }
 
-    async fn ask(&mut self, result: bool) -> Result<()> {
+    async fn ask(&mut self, head: ResultHead, result: bool) -> Result<()> {
+        self.head = head;
         self.ask = Some(result);
         Ok(())
     }
