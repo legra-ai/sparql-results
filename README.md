@@ -99,6 +99,22 @@ module. Those adapters materialize every solution row in `SparqlResult` and
 must only be used when the caller enforces a finite input/result limit. They
 are not used by the streaming APIs.
 
+## Literal validation
+
+Both readers check every literal's annotations and stop with
+`SparqlResultsError::InvalidLiteral(LiteralError)` when they are invalid:
+
+| Input | `LiteralError` |
+| ----- | -------------- |
+| A bare `"dir"` key in SRJ, or an unprefixed `dir` attribute in SRX. The base direction is written only as `its:dir`. | `BareDirKey` |
+| `its:dir` without a language tag | `DirectionWithoutLanguage` |
+| A language tag whose datatype is not `rdf:langString` (or `rdf:dirLangString` when `its:dir` is present) | `DatatypeContradictsLanguage` |
+| A datatype of `rdf:langString` / `rdf:dirLangString` with no language tag | `DatatypeRequiresLanguage` |
+| A language tag that is not well-formed BCP 47 (RFC 5646, syntax only; the IANA registry is not consulted) | `InvalidLanguageTag` |
+
+The checks run on each value as it is read, so streaming and bounded memory
+are unchanged.
+
 ## License
 
 Licensed under either of:

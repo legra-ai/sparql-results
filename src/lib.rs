@@ -13,6 +13,7 @@
 //! directly to Tokio async writers. Complete-document materialization is
 //! isolated in the explicit [`bounded`] module.
 
+mod literal;
 mod types;
 
 pub mod bounded;
@@ -20,6 +21,7 @@ pub mod bounded;
 mod srj;
 mod srx;
 
+pub use literal::LiteralError;
 pub use srj::{
     SrjStreamKind,
     SrjStreamSink,
@@ -61,6 +63,10 @@ pub enum SparqlResultsError {
     /// The document structure is internally inconsistent.
     #[error("invalid document: {0}")]
     InvalidDocument(String),
+    /// A literal's language tag, datatype, or base direction is invalid
+    /// or contradictory.
+    #[error("invalid literal: {0}")]
+    InvalidLiteral(#[from] LiteralError),
 }
 
 /// Result type used by all public parser and serializer operations.
