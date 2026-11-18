@@ -1,4 +1,5 @@
-//! Golden files and exact-bytes checks for the SRJ and SRX writers.
+//! Golden files and exact-bytes checks for the SRJ, SRX, CSV and TSV
+//! writers.
 //!
 //! Comparing decoded models cannot catch a writer and reader that are wrong
 //! in the same way, so these tests compare the written bytes. Regenerate the
@@ -12,12 +13,16 @@ mod cases;
 
 use cases::GoldenCase;
 use indexmap::IndexMap;
+use sparql_results::ResultHead;
 use sparql_results::bounded::{
     SparqlResult,
     parse_srj_bounded,
     parse_srx_bounded,
+    parse_tsv_bounded,
+    write_csv,
     write_srj,
     write_srx,
+    write_tsv,
 };
 
 const GOLDEN: &str = "tests/fixtures/golden";
@@ -26,33 +31,61 @@ const GOLDEN: &str = "tests/fixtures/golden";
 enum Format {
     Srj,
     Srx,
+    Csv,
+    Tsv,
 }
 
 impl Format {
-    const ALL: [Self; 2] = [Self::Srj, Self::Srx];
+    const ALL: [Self; 4] = [Self::Srj, Self::Srx, Self::Csv, Self::Tsv];
 
     const fn extension(self) -> &'static str {
         match self {
             Self::Srj => "srj",
             Self::Srx => "srx",
+            Self::Csv => "csv",
+            Self::Tsv => "tsv",
         }
+    }
+
+    /// CSV and TSV define only SELECT results.
+    const fn writes(self, result: &SparqlResult) -> bool {
+        matches!(self, Self::Srj | Self::Srx) || matches!(result, SparqlResult::Select { .. })
     }
 
     async fn write(self, result: &SparqlResult) -> String {
         let bytes = match self {
             Self::Srj => write_srj(Vec::new(), result).await,
             Self::Srx => write_srx(Vec::new(), result).await,
+            Self::Csv => write_csv(Vec::new(), result).await,
+            Self::Tsv => write_tsv(Vec::new(), result).await,
         }
         .expect("golden case writes");
         String::from_utf8(bytes).expect("UTF-8 output")
     }
 
-    async fn read(self, text: &str) -> SparqlResult {
-        match self {
+    /// What reading the written text gives back, or `None` for CSV, which
+    /// has no reader. TSV has no `link` header, so its expected result
+    /// drops the links.
+    async fn read_back(
+        self,
+        text: &str,
+        written: &SparqlResult,
+    ) -> Option<(SparqlResult, SparqlResult)> {
+        let read = match self {
             Self::Srj => parse_srj_bounded(text.as_bytes()).await,
             Self::Srx => parse_srx_bounded(text.as_bytes()).await,
+            Self::Tsv => parse_tsv_bounded(text.as_bytes()).await,
+            Self::Csv => return None,
         }
-        .expect("golden file reads")
+        .expect("golden file reads");
+        let expected = match (self, written) {
+            (Self::Tsv, SparqlResult::Select { head, rows }) => SparqlResult::Select {
+                head: ResultHead::select(head.vars().to_vec()).expect("valid header"),
+                rows: rows.clone(),
+            },
+            _ => written.clone(),
+        };
+        Some((read, expected))
     }
 }
 
@@ -66,10 +99,14 @@ impl Golden {
         GoldenCase::all()
             .into_iter()
             .flat_map(|case| {
-                Format::ALL.map(|format| Self {
-                    case: GoldenCase::new(case.name, case.result.clone()),
-                    format,
-                })
+                Format::ALL
+                    .into_iter()
+                    .filter(|format| format.writes(&case.result))
+                    .map(|format| Self {
+                        case: GoldenCase::new(case.name, case.result.clone()),
+                        format,
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect()
     }
@@ -92,12 +129,10 @@ async fn writers_match_golden_files() {
             std::fs::write(golden.path(), &written).expect("write golden file");
         }
         assert_eq!(written, golden.expected(), "{}", golden.path());
-        assert_eq!(
-            golden.format.read(&written).await,
-            golden.case.result,
-            "{} reads back",
-            golden.path()
-        );
+        if let Some((read, expected)) = golden.format.read_back(&written, &golden.case.result).await
+        {
+            assert_eq!(read, expected, "{} reads back", golden.path());
+        }
     }
 }
 
@@ -177,4 +212,94 @@ fn golden_files_spell_keywords_exactly() {
     assert!(read("ask-true.srx").contains("<boolean>true</boolean>"));
     assert!(read("ask-false.srx").contains("<boolean>false</boolean>"));
     assert!(read("link-select.srx").contains(r#"<link href="http://example.org/about"/>"#));
+}
+
+/// Exact CSV bytes: CRLF line ends (§2), bare header names (§3.1), plain
+/// lexical values and RFC 4180 quoting (§3.2), and the recursively quoted
+/// triple term of the §3.4 example.
+#[test]
+fn golden_csv_files_have_exact_bytes() {
+    let read = |name: &str| std::fs::read_to_string(format!("{GOLDEN}/{name}")).unwrap();
+    assert_eq!(
+        read("unbound.csv"),
+        "x,y\r\nonly x,\r\n,http://example.org/only-y\r\n,\r\n"
+    );
+    assert_eq!(read("zero-variable.csv"), "\r\n\r\n");
+    assert_eq!(read("directional.csv"), "x\r\nمرحبا\r\nHello\r\nHallo\r\n");
+    assert_eq!(
+        read("nested-triple.csv"),
+        "t\r\n\"<<( _:b0 http://example.org/says <<( http://example.org/s \
+         http://example.org/p \"\"שלום\"\" )>> )>>\"\r\n"
+    );
+    let escapes = read("tabular-escapes.csv");
+    let lines: Vec<&str> = escapes.split("\r\n").collect();
+    assert_eq!(lines[0], "s,o");
+    assert_eq!(lines[1], "http://example.org/s,\"comma, here\"");
+    assert_eq!(lines[2], "http://example.org/s,\"say \"\"hi\"\"\"");
+    assert_eq!(
+        lines[3],
+        "http://example.org/s,\"line\nbreak\r\ttab \\ slash\""
+    );
+    assert_eq!(lines[4], "http://example.org/s,42");
+    assert_eq!(lines[10], "http://example.org/s,\"5,5\"");
+    assert_eq!(lines[11], "http://example.org/a{b},");
+    assert_eq!(
+        lines[12],
+        "http://example.org/carol,\"<<( http://example.org/carol http://example.org/says \
+         \"\"Hello world, my name is \"\"\"\"Alice\"\"\"\".\"\" )>>\""
+    );
+}
+
+/// Exact TSV bytes: LF line ends (§2), `?`-prefixed header (§4.1), Turtle
+/// terms with `\t` / `\n` / `\r` escapes, abbreviated numbers, `@lang--dir`
+/// and `<<( s p o )>>` (§4.2).
+#[test]
+fn golden_tsv_files_have_exact_bytes() {
+    let read = |name: &str| std::fs::read_to_string(format!("{GOLDEN}/{name}")).unwrap();
+    assert_eq!(
+        read("unbound.tsv"),
+        "?x\t?y\n\"only x\"\t\n\t<http://example.org/only-y>\n\t\n"
+    );
+    assert_eq!(read("zero-variable.tsv"), "\n\n");
+    assert_eq!(
+        read("directional.tsv"),
+        "?x\n\"مرحبا\"@ar--rtl\n\"Hello\"@en--ltr\n\"Hallo\"@nl\n"
+    );
+    assert_eq!(
+        read("nested-triple.tsv"),
+        "?t\n<<( _:b0 <http://example.org/says> <<( <http://example.org/s> \
+         <http://example.org/p> \"שלום\"@he--rtl )>> )>>\n"
+    );
+    let escapes = read("tabular-escapes.tsv");
+    let lines: Vec<&str> = escapes.split('\n').collect();
+    let s = "<http://example.org/s>\t";
+    assert_eq!(lines[0], "?s\t?o");
+    assert_eq!(lines[1], format!("{s}\"comma, here\""));
+    assert_eq!(lines[2], format!("{s}\"say \\\"hi\\\"\""));
+    assert_eq!(lines[3], format!("{s}\"line\\nbreak\\r\\ttab \\\\ slash\""));
+    assert_eq!(lines[4], format!("{s}42"));
+    assert_eq!(lines[5], format!("{s}-0.5"));
+    assert_eq!(lines[6], format!("{s}1.0E6"));
+    assert_eq!(
+        lines[7],
+        format!("{s}\"forty-two\"^^<http://www.w3.org/2001/XMLSchema#integer>")
+    );
+    assert_eq!(
+        lines[8],
+        format!("{s}\"true\"^^<http://www.w3.org/2001/XMLSchema#boolean>")
+    );
+    assert_eq!(
+        lines[9],
+        format!("{s}\"x\"^^<http://www.w3.org/2001/XMLSchema#string>")
+    );
+    assert_eq!(lines[11], "<http://example.org/a\\u007Bb\\u007D>\t\"\"");
+    assert_eq!(
+        lines[12],
+        "<http://example.org/carol>\t<<( <http://example.org/carol> <http://example.org/says> \
+         \"Hello world, my name is \\\"Alice\\\".\" )>>"
+    );
+    assert!(
+        !read("link-select.tsv").contains("about"),
+        "TSV has no links"
+    );
 }

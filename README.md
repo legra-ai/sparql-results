@@ -11,6 +11,8 @@ SPARQL Query Results interchange formats:
 
 - [SPARQL Query Results XML (SRX)](https://www.w3.org/TR/rdf-sparql-XMLres/)
 - [SPARQL Query Results JSON (SRJ)](https://www.w3.org/TR/sparql12-results-json/)
+- [SPARQL Query Results CSV and TSV](https://www.w3.org/TR/sparql12-results-csv-tsv/)
+  (writers for both, a reader for TSV only; see below)
 
 The crate is deliberately independent of any RDF store, query engine, wire
 protocol, or application data model. It represents one binding row at a time
@@ -54,8 +56,9 @@ async fn main() -> sparql_results::Result<()> {
 }
 ```
 
-`SrxWriter` provides the equivalent incremental XML serializer. Both writers
-await every downstream write, preserving backpressure.
+`SrxWriter`, `CsvWriter` and `TsvWriter` provide the same incremental
+interface for XML, CSV and TSV. Every writer awaits each downstream write,
+preserving backpressure.
 
 A `ResultHead` holds the projected variables and any `link` IRIs. It is valid
 by construction: every variable is a SPARQL `VARNAME`, declared once
@@ -66,6 +69,48 @@ node or whose predicate is not an IRI (`RowError`); `write_srj` / `write_srx`
 check the whole bounded result first, including that an ASK header declares
 no variables. Output is deterministic: SRJ bindings are written in variable
 name order, SRX bindings in row order.
+
+## CSV and TSV
+
+`CsvWriter` and `TsvWriter` have the same `start_select` / `write_row` /
+`finish` interface as `SrjWriter`. Each row is checked, rendered into one
+row-sized buffer and written with one awaited write. They follow the
+[SPARQL 1.2 Query Results CSV and TSV Formats](https://www.w3.org/TR/sparql12-results-csv-tsv/)
+draft, which keeps the SPARQL 1.1 rules and adds triple terms and
+directional literals.
+
+| | CSV (§3) | TSV (§4) |
+| - | -------- | -------- |
+| Line end (§2) | CRLF | LF |
+| Header | `x,y` | `?x<TAB>?y` |
+| IRI | `http://example.org/a` | `<http://example.org/a>` |
+| Literal | lexical form only | `"v"`, `"v"@en`, `"v"@en--ltr`, `"v"^^<dt>`, or `42` / `-0.5` / `1.0E6` for XSD integers, decimals and doubles |
+| Blank node | `_:b0` | `_:b0` |
+| Triple term | `<<( http://s http://p "o" )>>` | `<<( <http://s> <http://p> "o" )>>` |
+| Unbound | empty field | empty field |
+| Escaping | RFC 4180: a field with `"`, `,`, LF or CR is quoted and its `"` doubled | `\t`, `\n`, `\r`, `\"`, `\\` in literals; IRI characters that Turtle excludes become `\uXXXX` |
+
+Both formats define only SELECT results. `write_csv` and `write_tsv` refuse
+an ASK result with `SparqlResultsError::AskNotTabular` before writing any
+bytes. Neither format has a `link` header, so links are not written. A TSV
+row is refused with `TsvError::BlankNodeLabel` when it holds a blank node
+label that `_:label` cannot spell. Both writers refuse a triple term whose
+predicate is not an IRI, at any nesting depth (`RowError::TriplePredicate`).
+
+`parse_tsv_streaming` reads TSV one line at a time and awaits a
+`TsvStreamSink` for each row. It accepts every Turtle term form in §4.2:
+single- or double-quoted strings with `ECHAR` / `UCHAR` escapes, `@lang` and
+`@lang--dir`, `^^<datatype>`, numbers, `true` / `false`, and `<<( s p o )>>`.
+It checks each term as the SRJ and SRX readers do. Malformed input is
+refused with a typed `TsvError` that gives the line and field.
+
+There is no CSV reader. The specification calls CSV "a lossy encoding of a
+table of results". A CSV field drops a literal's datatype, language tag and
+base direction. It cannot tell an IRI from a literal that spells one, a
+blank node from the literal `"_:b0"`, or a triple term from a string that
+looks like one. CSV also writes an unbound variable and an empty string the
+same way. A CSV reader would have to guess the RDF terms, so the crate does
+not offer one. Use TSV, SRJ or SRX when results must be read back.
 
 ## Streaming parsing
 
@@ -100,7 +145,8 @@ impl SrjStreamSink for RowSink {
 ```
 
 Use `parse_srj_streaming` or `parse_srx_streaming` with a sink such as
-`RowSink`. The sink is awaited before the parser advances, so a slow consumer
+`RowSink` (`parse_tsv_streaming` takes a `TsvStreamSink`, which has no
+`ask` event). The sink is awaited before the parser advances, so a slow consumer
 creates backpressure instead of an unbounded in-memory queue.
 
 Complete-document parsing and writing is isolated in the explicit `bounded`

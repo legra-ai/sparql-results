@@ -18,11 +18,14 @@ use sparql_results::bounded::{
     SparqlResult,
     parse_srj_bounded,
     parse_srx_bounded,
+    write_csv,
     write_srj,
     write_srx,
+    write_tsv,
 };
 use sparql_results::{
     BaseDirection,
+    CsvWriter,
     HeaderError,
     LiteralError,
     ResultHead,
@@ -32,6 +35,8 @@ use sparql_results::{
     SparqlResultsError,
     SrjWriter,
     SrxWriter,
+    TabularFormat,
+    TsvWriter,
 };
 use tokio::io::AsyncWrite;
 
@@ -135,6 +140,18 @@ fn invalid_results() -> Vec<(&'static str, SparqlResult, SparqlResultsError)> {
             select(row("x", triple(uri(), ResultValue::BNode("b".to_owned())))),
             RowError::TriplePredicate.into(),
         ),
+        (
+            "literal predicate in a nested triple term",
+            select(row(
+                "x",
+                ResultValue::Triple {
+                    subject: Box::new(uri()),
+                    predicate: Box::new(uri()),
+                    object: Box::new(triple(uri(), literal(None, None))),
+                },
+            )),
+            RowError::TriplePredicate.into(),
+        ),
     ]
 }
 
@@ -157,6 +174,29 @@ async fn bounded_writers_emit_zero_bytes_for_an_invalid_result() {
         let error = write_srx(xml_out.clone(), &result).await.err().expect(case);
         assert!(same_error(&error, &expected), "SRX {case}: {error}");
         assert_eq!(xml_out.bytes(), 0, "SRX {case} wrote bytes");
+
+        // CSV and TSV refuse any ASK result first: they define only SELECT.
+        let tabular_expected = |format| match result {
+            SparqlResult::Ask { .. } => SparqlResultsError::AskNotTabular(format).to_string(),
+            SparqlResult::Select { .. } => expected.to_string(),
+        };
+        let csv_out = ByteCounter::default();
+        let error = write_csv(csv_out.clone(), &result).await.err().expect(case);
+        assert_eq!(
+            error.to_string(),
+            tabular_expected(TabularFormat::Csv),
+            "CSV {case}"
+        );
+        assert_eq!(csv_out.bytes(), 0, "CSV {case} wrote bytes");
+
+        let tsv_out = ByteCounter::default();
+        let error = write_tsv(tsv_out.clone(), &result).await.err().expect(case);
+        assert_eq!(
+            error.to_string(),
+            tabular_expected(TabularFormat::Tsv),
+            "TSV {case}"
+        );
+        assert_eq!(tsv_out.bytes(), 0, "TSV {case} wrote bytes");
     }
 }
 
@@ -185,6 +225,26 @@ async fn streaming_writers_emit_zero_bytes_for_a_refused_row() {
         let error = writer.write_row(&rows[1]).await.unwrap_err();
         assert!(same_error(&error, &expected), "SRX {case}: {error}");
         assert_eq!(xml_out.bytes(), before, "SRX {case} wrote part of a row");
+
+        let csv_out = ByteCounter::default();
+        let mut writer = CsvWriter::start_select(csv_out.clone(), &head)
+            .await
+            .unwrap();
+        writer.write_row(&rows[0]).await.unwrap();
+        let before = csv_out.bytes();
+        let error = writer.write_row(&rows[1]).await.unwrap_err();
+        assert!(same_error(&error, &expected), "CSV {case}: {error}");
+        assert_eq!(csv_out.bytes(), before, "CSV {case} wrote part of a row");
+
+        let tsv_out = ByteCounter::default();
+        let mut writer = TsvWriter::start_select(tsv_out.clone(), &head)
+            .await
+            .unwrap();
+        writer.write_row(&rows[0]).await.unwrap();
+        let before = tsv_out.bytes();
+        let error = writer.write_row(&rows[1]).await.unwrap_err();
+        assert!(same_error(&error, &expected), "TSV {case}: {error}");
+        assert_eq!(tsv_out.bytes(), before, "TSV {case} wrote part of a row");
     }
 }
 
