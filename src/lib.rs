@@ -3,10 +3,13 @@
 //! Standalone parsers and serializers for the W3C SPARQL Query
 //! Results interchange formats.
 //!
-//! This crate owns two formats:
+//! This crate owns four formats:
 //!
 //! - SPARQL Query Results XML Format (quick-xml).
 //! - SPARQL Query Results JSON Format (`serde_json`).
+//! - SPARQL Query Results TSV Format (writer and reader).
+//! - SPARQL Query Results CSV Format (writer only; the README explains why CSV
+//!   cannot be read back).
 //!
 //! The public API is async-first: readers consume Tokio async readers,
 //! sinks are awaited before the next row is read, and serializers write
@@ -20,9 +23,16 @@ mod types;
 
 pub mod bounded;
 
+mod csv;
 mod srj;
 mod srx;
+mod tabular;
+mod tsv;
 
+pub use csv::{
+    CsvDialect,
+    CsvWriter,
+};
 pub use head::{
     HeaderError,
     ResultHead,
@@ -44,6 +54,20 @@ pub use srx::{
     canonicalize_srx,
     parse_srx_streaming,
 };
+pub use tabular::{
+    DelimitedWriter,
+    Dialect,
+    TabularFormat,
+};
+pub use tsv::{
+    TermSyntaxError,
+    TsvDialect,
+    TsvError,
+    TsvStreamSink,
+    TsvStreamSummary,
+    TsvWriter,
+    parse_tsv_streaming,
+};
 pub use types::{
     BaseDirection,
     ParseBaseDirectionError,
@@ -52,7 +76,7 @@ pub use types::{
 };
 
 /// Errors raised while parsing or serializing SPARQL query result
-/// documents in SRX or SRJ form.
+/// documents in SRX, SRJ, CSV or TSV form.
 #[derive(Debug, thiserror::Error)]
 pub enum SparqlResultsError {
     /// The underlying XML reader or writer failed.
@@ -80,6 +104,17 @@ pub enum SparqlResultsError {
     /// A row cannot be written under its header.
     #[error("invalid row: {0}")]
     InvalidRow(#[from] RowError),
+    /// The underlying CSV writer failed.
+    #[error("CSV error: {0}")]
+    Csv(String),
+    /// A TSV document or value was refused, or the TSV reader or writer
+    /// failed.
+    #[error("TSV error: {0}")]
+    Tsv(TsvError),
+    /// An ASK result was given to a CSV or TSV writer. Those formats define
+    /// only SELECT results, so nothing is written.
+    #[error("the SPARQL results {0} format has no representation for an ASK result")]
+    AskNotTabular(TabularFormat),
 }
 
 /// Result type used by all public parser and serializer operations.

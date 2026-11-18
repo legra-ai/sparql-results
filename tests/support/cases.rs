@@ -29,6 +29,7 @@ impl GoldenCase {
             Self::new("ask-true", ask(true, Vec::new())),
             Self::new("ask-false", ask(false, Vec::new())),
             Self::new("link-select", link_select()),
+            Self::new("tabular-escapes", select(&["s", "o"], tabular_escapes())),
             Self::new(
                 "link-ask",
                 ask(true, vec!["http://example.org/about-ask".to_owned()]),
@@ -131,6 +132,53 @@ fn unbound_rows() -> Vec<ResultRow> {
         ResultRow::from_pairs([("x", plain("only x"))]),
         ResultRow::from_pairs([("y", uri("http://example.org/only-y"))]),
         ResultRow::from_pairs([]),
+    ]
+}
+
+const XSD: &str = "http://www.w3.org/2001/XMLSchema#";
+
+fn typed(value: &str, datatype: &str) -> ResultValue {
+    ResultValue::Literal {
+        value: value.to_owned(),
+        lang: None,
+        datatype: Some(if datatype.starts_with("http") {
+            datatype.to_owned()
+        } else {
+            format!("{XSD}{datatype}")
+        }),
+        dir: None,
+    }
+}
+
+/// The CSV quoting and TSV escaping corner cases: separators, quotes and
+/// line breaks inside values, numeric abbreviation, explicit datatypes, an
+/// IRI character Turtle must escape, and a triple term with a quoted
+/// literal (the CSV and TSV §3.4 / §4.4 examples).
+fn tabular_escapes() -> Vec<ResultRow> {
+    let s = || uri("http://example.org/s");
+    vec![
+        ResultRow::from_pairs([("s", s()), ("o", plain("comma, here"))]),
+        ResultRow::from_pairs([("s", s()), ("o", plain("say \"hi\""))]),
+        ResultRow::from_pairs([("s", s()), ("o", plain("line\nbreak\r\ttab \\ slash"))]),
+        ResultRow::from_pairs([("s", s()), ("o", typed("42", "integer"))]),
+        ResultRow::from_pairs([("s", s()), ("o", typed("-0.5", "decimal"))]),
+        ResultRow::from_pairs([("s", s()), ("o", typed("1.0E6", "double"))]),
+        ResultRow::from_pairs([("s", s()), ("o", typed("forty-two", "integer"))]),
+        ResultRow::from_pairs([("s", s()), ("o", typed("true", "boolean"))]),
+        ResultRow::from_pairs([("s", s()), ("o", typed("x", "string"))]),
+        ResultRow::from_pairs([("s", s()), ("o", typed("5,5", "http://example.org/dt"))]),
+        ResultRow::from_pairs([("s", uri("http://example.org/a{b}")), ("o", plain(""))]),
+        ResultRow::from_pairs([
+            ("s", uri("http://example.org/carol")),
+            (
+                "o",
+                triple(
+                    uri("http://example.org/carol"),
+                    "http://example.org/says",
+                    plain("Hello world, my name is \"Alice\"."),
+                ),
+            ),
+        ]),
     ]
 }
 

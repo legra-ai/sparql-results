@@ -2,7 +2,7 @@
 
 /// A candidate variable name checked against the SPARQL grammar's
 /// `VARNAME` production (without the leading `?` / `$`).
-pub(super) struct VariableNameSyntax<'a>(&'a str);
+pub(crate) struct VariableNameSyntax<'a>(&'a str);
 
 impl<'a> VariableNameSyntax<'a> {
     pub(super) const fn new(name: &'a str) -> Self {
@@ -17,13 +17,15 @@ impl<'a> VariableNameSyntax<'a> {
             && chars.all(Self::is_continuation)
     }
 
-    fn is_continuation(c: char) -> bool {
+    /// A `VARNAME` character after the first; `PN_CHARS` minus `-`.
+    pub(crate) fn is_continuation(c: char) -> bool {
         Self::is_pn_chars_u(c)
             || c.is_ascii_digit()
             || matches!(c, '\u{00B7}' | '\u{0300}'..='\u{036F}' | '\u{203F}'..='\u{2040}')
     }
 
-    fn is_pn_chars_u(c: char) -> bool {
+    /// The `PN_CHARS_U` production.
+    pub(crate) fn is_pn_chars_u(c: char) -> bool {
         c == '_' || Self::is_pn_chars_base(c)
     }
 

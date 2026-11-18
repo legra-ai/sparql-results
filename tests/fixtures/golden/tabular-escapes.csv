@@ -1,0 +1,14 @@
+s,o
+http://example.org/s,"comma, here"
+http://example.org/s,"say ""hi"""
+http://example.org/s,"line
+break	tab \ slash"
+http://example.org/s,42
+http://example.org/s,-0.5
+http://example.org/s,1.0E6
+http://example.org/s,forty-two
+http://example.org/s,true
+http://example.org/s,x
+http://example.org/s,"5,5"
+http://example.org/a{b},
+http://example.org/carol,"<<( http://example.org/carol http://example.org/says ""Hello world, my name is """"Alice""""."" )>>"

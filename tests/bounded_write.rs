@@ -24,11 +24,13 @@ use std::task::{
 use indexmap::IndexMap;
 use sparql_results::{
     BaseDirection,
+    CsvWriter,
     ResultHead,
     ResultRow,
     ResultValue,
     SrjWriter,
     SrxWriter,
+    TsvWriter,
 };
 use tokio::io::AsyncWrite;
 
@@ -167,6 +169,8 @@ fn row(index: u32) -> ResultRow {
 enum Format {
     Srj,
     Srx,
+    Csv,
+    Tsv,
 }
 
 impl Format {
@@ -192,6 +196,24 @@ impl Format {
                 }
                 writer.finish().await.unwrap()
             }
+            Self::Csv => {
+                let mut writer = CsvWriter::start_select(WriteRecorder::default(), &head)
+                    .await
+                    .unwrap();
+                for index in 0..rows {
+                    writer.write_row(&row(index)).await.unwrap();
+                }
+                writer.finish().await.unwrap()
+            }
+            Self::Tsv => {
+                let mut writer = TsvWriter::start_select(WriteRecorder::default(), &head)
+                    .await
+                    .unwrap();
+                for index in 0..rows {
+                    writer.write_row(&row(index)).await.unwrap();
+                }
+                writer.finish().await.unwrap()
+            }
         };
         Usage {
             largest_write: recorder.largest,
@@ -206,7 +228,7 @@ fn writes_and_allocations_do_not_grow_with_row_count() {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .build()
         .unwrap();
-    for format in [Format::Srj, Format::Srx] {
+    for format in [Format::Srj, Format::Srx, Format::Csv, Format::Tsv] {
         let small = runtime.block_on(format.write(SMALL));
         let large = runtime.block_on(format.write(LARGE));
         assert!(large.writes > small.writes * 50, "{small:?} {large:?}");
