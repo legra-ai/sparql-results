@@ -79,7 +79,8 @@ jobs:
           fetch-depth: 0
       # The authorized release writer: the organisation's GitHub App, minted
       # per run and scoped to this repository only.
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
+        if: github.ref == 'refs/heads/main'
         id: writer
         with:
           app-id: ${{ secrets.RELEASE_WRITER_APP_ID }}
@@ -90,7 +91,7 @@ jobs:
         id: release
         with:
           breaking-change-bump: minor
-          token: ${{ steps.writer.outputs.token }}
+          token: ${{ github.ref == 'refs/heads/main' && steps.writer.outputs.token || github.token }}
 
   test:
     needs: prepare

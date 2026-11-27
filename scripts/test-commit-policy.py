@@ -24,6 +24,16 @@ class CommitPolicyTests(unittest.TestCase):
         self.assertNotIn("cargo +nightly", workflow)
         self.assertIn("./scripts/fmt.sh --check", (root / ".githooks/pre-commit").read_text())
 
+    def test_pull_requests_do_not_require_release_credentials(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / ".github/workflows/ci.yml").read_text()
+        prepare = workflow.split("  prepare:", 1)[1].split("\n  test:", 1)[0]
+        writer = prepare.split("      - uses: actions/create-github-app-token@", 1)[1]
+        writer = writer.split("      - uses:", 1)[0]
+        self.assertIn("if: github.ref == 'refs/heads/main'", writer)
+        self.assertIn("token: ${{ github.ref == 'refs/heads/main' && steps.writer.outputs.token || github.token }}",
+                      prepare)
+
     def test_commit_header_contract(self):
         hook = Path(__file__).resolve().parents[1] / ".githooks/commit-msg"
         cases = [
