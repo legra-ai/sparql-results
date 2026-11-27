@@ -14,6 +14,8 @@ use serde::{
     Serialize,
 };
 
+use crate::ResultHead;
+
 /// The base direction of an RDF 1.2 directional language-tagged literal
 /// (`rdf:dirLangString`).
 ///
@@ -87,14 +89,15 @@ pub enum SparqlResult {
     /// SELECT query result — a header listing the projected
     /// variables plus one row per solution.
     Select {
-        /// Variable names from the `<head>` / `head.vars`, in the
-        /// order the producer declared them.
-        vars: Vec<String>,
+        /// The header: variables in declaration order, and links.
+        head: ResultHead,
         /// Result rows.
         rows: Vec<ResultRow>,
     },
     /// ASK query result — a single boolean.
     Ask {
+        /// The header; an ASK header carries only links.
+        head: ResultHead,
         /// The boolean answer the endpoint returned.
         result: bool,
     },

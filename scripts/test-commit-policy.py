@@ -24,6 +24,16 @@ class CommitPolicyTests(unittest.TestCase):
         self.assertNotIn("cargo +nightly", workflow)
         self.assertIn("./scripts/fmt.sh --check", (root / ".githooks/pre-commit").read_text())
 
+    def test_pull_requests_do_not_require_release_credentials(self):
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / ".github/workflows/ci.yml").read_text()
+        prepare = workflow.split("  prepare:", 1)[1].split("\n  test:", 1)[0]
+        writer = prepare.split("      - uses: actions/create-github-app-token@", 1)[1]
+        writer = writer.split("      - uses:", 1)[0]
+        self.assertIn("if: github.ref == 'refs/heads/main'", writer)
+        self.assertIn("token: ${{ github.ref == 'refs/heads/main' && steps.writer.outputs.token || github.token }}",
+                      prepare)
+
     def test_commit_header_contract(self):
         hook = Path(__file__).resolve().parents[1] / ".githooks/commit-msg"
         cases = [
@@ -42,6 +52,29 @@ class CommitPolicyTests(unittest.TestCase):
                 source.flush()
                 result = subprocess.run([str(hook), source.name], capture_output=True, text=True)
                 self.assertEqual(result.returncode == 0, valid, result.stdout + result.stderr)
+
+
+
+class ReleaseApprovalPolicyTests(unittest.TestCase):
+    def test_minor_and_major_plans_are_reviewed_before_release_writer_runs(self):
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text()
+        plan = workflow.split("\n  plan:\n", 1)[1].split("\n  approve-release:\n", 1)[0]
+        self.assertIn("plan-only: 'true'", plan)
+        self.assertIn("token: ${{ github.token }}", plan)
+        self.assertNotIn("RELEASE_WRITER", plan)
+        self.assertIn("approval-required: ${{ steps.release.outputs.approval-required }}", plan)
+        self.assertIn("bump-level: ${{ steps.release.outputs.bump-level }}", plan)
+        self.assertIn('f"Approve {level} release {version} "', plan)
+        self.assertIn("WORKFLOW_SOURCE", plan)
+        approval = workflow.split("\n  approve-release:\n", 1)[1].split("\n  prepare:\n", 1)[0]
+        self.assertIn("environment: ${{ needs.plan.outputs.approval-required == 'true' "
+                      "&& 'release-approval' || '' }}", approval)
+        self.assertNotIn("\n    if:", approval, "a skipped approval job would skip its descendants")
+        self.assertIn("\n  prepare:\n    needs: [plan, approve-release]\n", workflow)
+        self.assertIn("\n  actions: read\n", workflow)
+        self.assertNotIn("major-release", workflow)
+        self.assertNotIn("major-approval-required", workflow)
+        self.assertNotIn("pending_deployments", workflow)
 
 
 if __name__ == "__main__":

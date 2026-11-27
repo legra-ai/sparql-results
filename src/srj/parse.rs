@@ -6,6 +6,7 @@ use super::reader::JsonReader;
 use crate::types::SparqlResult;
 use crate::{
     Result,
+    ResultHead,
     ResultRow,
 };
 
@@ -31,11 +32,11 @@ pub struct SrjStreamSummary {
 #[async_trait::async_trait]
 pub trait SrjStreamSink {
     /// Accept a SELECT header before any rows are emitted.
-    async fn select_header(&mut self, vars: Vec<String>) -> Result<()>;
+    async fn select_header(&mut self, head: ResultHead) -> Result<()>;
     /// Accept exactly one SELECT row.
     async fn select_row(&mut self, row: ResultRow) -> Result<()>;
     /// Accept an ASK boolean result.
-    async fn ask(&mut self, result: bool) -> Result<()>;
+    async fn ask(&mut self, head: ResultHead, result: bool) -> Result<()>;
 }
 
 /// Parse a bounded SRJ document into the materialized result model.
@@ -75,7 +76,7 @@ where
 
 #[derive(Default)]
 struct MaterializedSink {
-    vars: Vec<String>,
+    head: ResultHead,
     rows: Vec<ResultRow>, // bounded: explicitly requested materialized API
     ask: Option<bool>,
 }
@@ -83,9 +84,12 @@ struct MaterializedSink {
 impl MaterializedSink {
     fn result(self) -> SparqlResult {
         match self.ask {
-            Some(result) => SparqlResult::Ask { result },
+            Some(result) => SparqlResult::Ask {
+                head: self.head,
+                result,
+            },
             None => SparqlResult::Select {
-                vars: self.vars,
+                head: self.head,
                 rows: self.rows,
             },
         }
@@ -94,8 +98,8 @@ impl MaterializedSink {
 
 #[async_trait::async_trait]
 impl SrjStreamSink for MaterializedSink {
-    async fn select_header(&mut self, vars: Vec<String>) -> Result<()> {
-        self.vars = vars;
+    async fn select_header(&mut self, head: ResultHead) -> Result<()> {
+        self.head = head;
         Ok(())
     }
 
@@ -104,7 +108,8 @@ impl SrjStreamSink for MaterializedSink {
         Ok(())
     }
 
-    async fn ask(&mut self, result: bool) -> Result<()> {
+    async fn ask(&mut self, head: ResultHead, result: bool) -> Result<()> {
+        self.head = head;
         self.ask = Some(result);
         Ok(())
     }

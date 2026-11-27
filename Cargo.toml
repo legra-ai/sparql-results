@@ -1,11 +1,11 @@
 [package]
 name = "sparql-results"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 authors = ["Jacobus Geluk <jacobus.geluk@dataroad.com>"]
-description = "Async streaming parsers and serializers for SPARQL Query Results XML and JSON"
+description = "Async streaming parsers and serializers for SPARQL Query Results XML, JSON, CSV and TSV"
 repository = "https://github.com/legra-ai/sparql-results"
 homepage = "https://github.com/legra-ai/sparql-results"
 documentation = "https://docs.rs/sparql-results"
@@ -19,6 +19,7 @@ include = [
     "build.rs",
     "src/**/*.rs",
     "tests/**/*.rs",
+    "tests/fixtures/**",
 ]
 build = "build.rs"
 exclude = ["Cargo.toml.orig", ".cargo_vcs_info.json", "CHANGELOG.md"]
@@ -42,7 +43,7 @@ tokio = { version = "1", features = ["io-util"] }
 tokio = { version = "1", features = ["io-util", "macros", "rt", "rt-multi-thread", "sync", "time"] }
 
 [build-dependencies]
-rhusky = "0.0.6"
+rhusky = "2.0.12"
 
 [lints.rust]
 missing_docs = "deny"

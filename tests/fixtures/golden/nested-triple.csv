@@ -1,0 +1,2 @@
+t
+"<<( _:b0 http://example.org/says <<( http://example.org/s http://example.org/p ""שלום"" )>> )>>"

@@ -1,0 +1,1 @@
+{"head":{"vars":["x"],"link":["http://example.org/about","http://example.org/license"]},"results":{"bindings":[{"x":{"type":"literal","value":"linked"}}]}}

@@ -23,6 +23,7 @@ use sparql_results::bounded::{
 use sparql_results::{
     BaseDirection,
     Result,
+    ResultHead,
     ResultRow,
     ResultValue,
     SparqlResultsError,
@@ -67,7 +68,7 @@ struct RejectingSink;
 
 #[async_trait::async_trait]
 impl SrjStreamSink for RejectingSink {
-    async fn select_header(&mut self, _vars: Vec<String>) -> Result<()> {
+    async fn select_header(&mut self, _head: ResultHead) -> Result<()> {
         Ok(())
     }
 
@@ -77,37 +78,37 @@ impl SrjStreamSink for RejectingSink {
         ))
     }
 
-    async fn ask(&mut self, _result: bool) -> Result<()> {
+    async fn ask(&mut self, _head: ResultHead, _result: bool) -> Result<()> {
         Ok(())
     }
 }
 
 #[async_trait::async_trait]
 impl SrjStreamSink for CountingSink {
-    async fn select_header(&mut self, vars: Vec<String>) -> Result<()> {
-        self.vars = vars;
+    async fn select_header(&mut self, head: ResultHead) -> Result<()> {
+        self.vars = head.vars().to_vec();
         Ok(())
     }
     async fn select_row(&mut self, _row: ResultRow) -> Result<()> {
         self.rows += 1;
         Ok(())
     }
-    async fn ask(&mut self, _result: bool) -> Result<()> {
+    async fn ask(&mut self, _head: ResultHead, _result: bool) -> Result<()> {
         Ok(())
     }
 }
 
 #[async_trait::async_trait]
 impl SrxStreamSink for CountingSink {
-    async fn select_header(&mut self, vars: Vec<String>) -> Result<()> {
-        self.vars = vars;
+    async fn select_header(&mut self, head: ResultHead) -> Result<()> {
+        self.vars = head.vars().to_vec();
         Ok(())
     }
     async fn select_row(&mut self, _row: ResultRow) -> Result<()> {
         self.rows += 1;
         Ok(())
     }
-    async fn ask(&mut self, _result: bool) -> Result<()> {
+    async fn ask(&mut self, _head: ResultHead, _result: bool) -> Result<()> {
         Ok(())
     }
 }
@@ -221,14 +222,16 @@ impl AsyncWrite for PartialWriter {
 #[tokio::test]
 async fn async_writers_round_trip_through_partial_writes() {
     let result = SparqlResult::Select {
-        vars: vec!["x".to_owned()],
+        head: ResultHead::select(vec!["x".to_owned()]).unwrap(),
         rows: vec![ResultRow {
             bindings: IndexMap::from([(
                 "x".to_owned(),
                 ResultValue::Literal {
                     value: "v".to_owned(),
                     lang: Some("en".to_owned()),
-                    datatype: Some("urn:mime:text".to_owned()),
+                    datatype: Some(
+                        "http://www.w3.org/1999/02/22-rdf-syntax-ns#langString".to_owned(),
+                    ),
                     dir: None,
                 },
             )]),
@@ -295,7 +298,7 @@ impl AsyncWrite for BufWriter {
 
 fn dir_lang_result(dir: BaseDirection) -> SparqlResult {
     SparqlResult::Select {
-        vars: vec!["x".to_owned()],
+        head: ResultHead::select(vec!["x".to_owned()]).unwrap(),
         rows: vec![ResultRow {
             bindings: IndexMap::from([(
                 "x".to_owned(),
@@ -310,23 +313,8 @@ fn dir_lang_result(dir: BaseDirection) -> SparqlResult {
     }
 }
 
-/// (a) SRJ serialization of a directional language-tagged literal emits
-/// the SPARQL 1.2 `"its:dir"` key alongside `"value"` and `"xml:lang"`.
-#[tokio::test]
-async fn srj_serializes_base_direction() {
-    let result = dir_lang_result(BaseDirection::Ltr);
-    let writer = write_srj(BufWriter(Vec::new()), &result).await.unwrap();
-    let json = String::from_utf8(writer.0).unwrap();
-    assert!(
-        json.contains(r#""its:dir":"ltr""#),
-        "SRJ must emit its:dir: {json}"
-    );
-    assert!(
-        json.contains(r#""xml:lang":"ar""#),
-        "SRJ must keep lang: {json}"
-    );
-}
-
+/// SRJ `its:dir` spelling is pinned by `tests/golden_output.rs`.
+///
 /// (b) SRX serialization emits `its:dir` on the `<literal>` element with the
 /// ITS namespace declared on that same element (not on the root `<sparql>`, so
 /// non-directional output stays byte-identical to plain W3C SRX).

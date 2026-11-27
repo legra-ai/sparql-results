@@ -1,0 +1,1 @@
+<?xml version="1.0"?><sparql xmlns="http://www.w3.org/2005/sparql-results#"><head><variable name="x"/><link href="http://example.org/about"/><link href="http://example.org/license"/></head><results><result><binding name="x"><literal>linked</literal></binding></result></results></sparql>

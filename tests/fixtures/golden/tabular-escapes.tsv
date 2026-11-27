@@ -1,0 +1,13 @@
+?s	?o
+<http://example.org/s>	"comma, here"
+<http://example.org/s>	"say \"hi\""
+<http://example.org/s>	"line\nbreak\r\ttab \\ slash"
+<http://example.org/s>	42
+<http://example.org/s>	-0.5
+<http://example.org/s>	1.0E6
+<http://example.org/s>	"forty-two"^^<http://www.w3.org/2001/XMLSchema#integer>
+<http://example.org/s>	"true"^^<http://www.w3.org/2001/XMLSchema#boolean>
+<http://example.org/s>	"x"^^<http://www.w3.org/2001/XMLSchema#string>
+<http://example.org/s>	"5,5"^^<http://example.org/dt>
+<http://example.org/a\u007Bb\u007D>	""
+<http://example.org/carol>	<<( <http://example.org/carol> <http://example.org/says> "Hello world, my name is \"Alice\"." )>>

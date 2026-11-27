@@ -1,0 +1,4 @@
+# The writers are compared byte-wise: CSV golden files end lines with CRLF
+# (SPARQL CSV/TSV section 2), TSV with LF. Never convert line endings.
+*.csv -text
+*.tsv -text

@@ -19,6 +19,7 @@ use sparql_results::bounded::{
     write_srx,
 };
 use sparql_results::{
+    ResultHead,
     ResultRow,
     ResultValue,
     SrjStreamSink,
@@ -75,7 +76,7 @@ struct CollectSink<'a>(&'a mut Vec<ResultRow>);
 
 #[async_trait::async_trait]
 impl SrxStreamSink for CollectSink<'_> {
-    async fn select_header(&mut self, _vars: Vec<String>) -> sparql_results::Result<()> {
+    async fn select_header(&mut self, _head: ResultHead) -> sparql_results::Result<()> {
         Ok(())
     }
 
@@ -84,7 +85,7 @@ impl SrxStreamSink for CollectSink<'_> {
         Ok(())
     }
 
-    async fn ask(&mut self, _result: bool) -> sparql_results::Result<()> {
+    async fn ask(&mut self, _head: ResultHead, _result: bool) -> sparql_results::Result<()> {
         Ok(())
     }
 }
@@ -96,7 +97,7 @@ struct GatedSink {
 
 #[async_trait::async_trait]
 impl SrjStreamSink for GatedSink {
-    async fn select_header(&mut self, _vars: Vec<String>) -> sparql_results::Result<()> {
+    async fn select_header(&mut self, _head: ResultHead) -> sparql_results::Result<()> {
         Ok(())
     }
 
@@ -108,14 +109,14 @@ impl SrjStreamSink for GatedSink {
         Ok(())
     }
 
-    async fn ask(&mut self, _result: bool) -> sparql_results::Result<()> {
+    async fn ask(&mut self, _head: ResultHead, _result: bool) -> sparql_results::Result<()> {
         Ok(())
     }
 }
 
 #[async_trait::async_trait]
 impl SrxStreamSink for GatedSink {
-    async fn select_header(&mut self, _vars: Vec<String>) -> sparql_results::Result<()> {
+    async fn select_header(&mut self, _head: ResultHead) -> sparql_results::Result<()> {
         Ok(())
     }
 
@@ -127,7 +128,7 @@ impl SrxStreamSink for GatedSink {
         Ok(())
     }
 
-    async fn ask(&mut self, _result: bool) -> sparql_results::Result<()> {
+    async fn ask(&mut self, _head: ResultHead, _result: bool) -> sparql_results::Result<()> {
         Ok(())
     }
 }
@@ -265,14 +266,14 @@ impl AsyncWrite for FailingWriter {
 
 #[tokio::test]
 async fn writer_errors_propagate_from_both_formats_and_canonicalization() {
-    let vars = vec!["x".to_owned()];
-    let srj = sparql_results::SrjWriter::start_select(FailingWriter, &vars)
+    let head = ResultHead::select(vec!["x".to_owned()]).unwrap();
+    let srj = sparql_results::SrjWriter::start_select(FailingWriter, &head)
         .await
         .err()
         .expect("SRJ writer fails");
     assert!(matches!(srj, sparql_results::SparqlResultsError::Json(_)));
 
-    let srx = sparql_results::SrxWriter::start_select(FailingWriter, &vars)
+    let srx = sparql_results::SrxWriter::start_select(FailingWriter, &head)
         .await
         .err()
         .expect("SRX writer fails");
@@ -308,7 +309,7 @@ async fn canonicalizer_streams_one_byte_reads_into_partial_writes() {
 #[tokio::test]
 async fn writers_handle_partial_writes_without_materializing_a_document() {
     let result = SparqlResult::Select {
-        vars: vec!["x".to_owned()],
+        head: ResultHead::select(vec!["x".to_owned()]).unwrap(),
         rows: vec![ResultRow {
             bindings: [(
                 "x".to_owned(),
