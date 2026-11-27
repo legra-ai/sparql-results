@@ -172,7 +172,7 @@ fn rebuild_start(src: &BytesStart<'_>) -> Result<BytesStart<'static>> {
             SparqlResultsError::Xml(format!("invalid UTF-8 in attribute name: {err}"))
         })?;
         let value = attr
-            .unescape_value()
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
             .map_err(|err| SparqlResultsError::Xml(format!("invalid attribute value: {err}")))?;
         out.push_attribute((key, value.as_ref()));
     }

@@ -215,7 +215,7 @@ fn required_attr(element: &quick_xml::events::BytesStart<'_>, name: &[u8]) -> Re
             ))
         })?;
     Ok(attribute
-        .unescape_value()
+        .normalized_value(quick_xml::XmlVersion::Implicit1_0)
         .map_err(|err| SparqlResultsError::Xml(err.to_string()))?
         .into_owned())
 }

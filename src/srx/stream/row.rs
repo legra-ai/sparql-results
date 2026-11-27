@@ -268,7 +268,7 @@ fn required_attr(element: &BytesStart<'_>, name: &[u8]) -> Result<String> {
             ))
         })?;
     Ok(attribute
-        .unescape_value()
+        .normalized_value(quick_xml::XmlVersion::Implicit1_0)
         .map_err(|err| SparqlResultsError::Xml(err.to_string()))?
         .into_owned())
 }
@@ -279,7 +279,7 @@ fn optional_attr(element: &BytesStart<'_>, name: &[u8]) -> Result<Option<String>
         .map_err(|err| SparqlResultsError::Xml(err.to_string()))?
         .map(|attribute| {
             attribute
-                .unescape_value()
+                .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                 .map(std::borrow::Cow::into_owned)
                 .map_err(|err| SparqlResultsError::Xml(err.to_string()))
         })
@@ -310,7 +310,7 @@ fn optional_dir(element: &BytesStart<'_>) -> Result<Option<BaseDirection>> {
             continue;
         }
         let token = attribute
-            .unescape_value()
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
             .map_err(|err| SparqlResultsError::Xml(err.to_string()))?;
         return token
             .parse()
