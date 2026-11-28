@@ -31,6 +31,7 @@ jobs:
         id: release
         with:
           breaking-change-bump: minor
+          release-bump: patch
           token: ${{ github.token }}
           plan-only: 'true'
       - name: Show release proposal
@@ -91,6 +92,7 @@ jobs:
         id: release
         with:
           breaking-change-bump: minor
+          release-bump: patch
           token: ${{ github.ref == 'refs/heads/main' && steps.writer.outputs.token || github.token }}
 
   test:
